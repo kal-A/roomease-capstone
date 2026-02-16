@@ -72,10 +72,9 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking }
     set("avNeeds", next);
   };
 
-  const toggleFurnitureNeed = (label: string) => {
-    const next = furnitureNeeds.includes(label)
-      ? furnitureNeeds.filter((l) => l !== label)
-      : [...furnitureNeeds, label];
+  /** Single-select: choosing an option sets it; clicking again clears. */
+  const setFurnitureNeed = (label: string) => {
+    const next = furnitureNeeds.includes(label) ? [] : [label];
     set("furnitureNeeds", next);
   };
 
@@ -350,7 +349,7 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking }
           style={{ maxHeight: formData.furnitureNeedsEnabled ? "420px" : "0" }}
         >
           <div className="pt-3 space-y-3">
-            <p className="text-sm text-gray-500">Select required furniture (rooms must match all selected)</p>
+            <p className="text-sm text-gray-500">Select one option (rooms must match)</p>
             <div className="flex flex-wrap gap-2">
               {furnitureOptions.map((label) => {
                 const isSelected = furnitureNeeds.includes(label);
@@ -358,7 +357,7 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking }
                   <button
                     key={label}
                     type="button"
-                    onClick={() => toggleFurnitureNeed(label)}
+                    onClick={() => setFurnitureNeed(label)}
                     className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:ring-offset-2 focus:ring-offset-[#1A1A1A] ${
                       isSelected
                         ? "border-2 border-[#FFD100] bg-[#FFD100]/20 text-[#FFD100]"

@@ -154,7 +154,7 @@ export function RoomCard({
           onClick={onSelect}
           className="flex-1 rounded-xl bg-[#FFD100] px-4 py-3 font-semibold text-black shadow-lg transition hover:bg-[#e6bc00] focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:ring-offset-2 focus:ring-offset-[#1A1A1A]"
         >
-          Select this room
+          Book this room
         </button>
         <button
           type="button"

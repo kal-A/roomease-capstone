@@ -35,57 +35,43 @@ export function BookingSummary({
 
   if (ticketStyle) {
     return (
-      <div className="rounded-xl border-2 border-[#FFD100]/30 bg-[#111111] p-6 sm:p-8 shadow-xl">
-        <p className="mb-6 text-center text-sm font-semibold uppercase tracking-widest text-[#FFD100]">
+      <div className="rounded-xl border-2 border-[var(--primaryBorder)] bg-[var(--surface)] p-4 sm:p-5 shadow-[var(--shadowMd)]">
+        <p className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-[var(--primary)]">
           Confirmation #{confirmationNumber}
         </p>
-
-        <div className="space-y-5">
+        <div className="space-y-3">
           <section>
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Event</p>
-            <p className="mt-1 text-white font-medium">{formData.eventName}</p>
-            <p className="mt-0.5 text-sm text-gray-400">Organizer: {formData.organizerName}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Event</p>
+            <p className="mt-0.5 text-[var(--textPrimary)] font-medium">{formData.eventName}</p>
+            <p className="mt-0.5 text-xs text-[var(--textSecondary)]">Organizer: {formData.organizerName}</p>
           </section>
-
           <section>
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Time</p>
-            <p className="mt-1 text-white">{formData.preferredDate} • {timeLabel}</p>
-            <p className="mt-0.5 text-sm text-gray-400">Duration: {durationLabel}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Time</p>
+            <p className="mt-0.5 text-[var(--textPrimary)]">{formData.preferredDate} • {timeLabel}</p>
+            <p className="mt-0.5 text-xs text-[var(--textSecondary)]">Duration: {durationLabel}</p>
           </section>
-
           <section>
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Room</p>
-            <p className="mt-1 text-white font-medium">{room.name}</p>
-            <p className="mt-0.5 text-sm text-gray-400">Capacity {room.capacity}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Room</p>
+            <p className="mt-0.5 text-[var(--textPrimary)] font-medium">{room.name}</p>
+            <p className="mt-0.5 text-xs text-[var(--textSecondary)]">Capacity {room.capacity}</p>
           </section>
-
           <section>
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Building</p>
-            <p className="mt-1 text-white">{buildingLabel}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Building</p>
+            <p className="mt-0.5 text-[var(--textPrimary)]">{buildingLabel}</p>
           </section>
-
           <section>
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Group size</p>
-            <p className="mt-1 text-white">{formData.groupSize}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Group size</p>
+            <p className="mt-0.5 text-[var(--textPrimary)]">{formData.groupSize}</p>
           </section>
-
           {(avBadges.length > 0 || furnitureLabels.length > 0) && (
             <>
               <section>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">AV Capabilities</p>
-                <div className="flex flex-wrap gap-2">
-                  {avBadges.map((b) => (
-                    <FeatureBadge key={b} animated={false}>{b}</FeatureBadge>
-                  ))}
-                </div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)] mb-1">AV Capabilities</p>
+                <div className="flex flex-wrap gap-1.5">{avBadges.map((b) => <FeatureBadge key={b} animated={false}>{b}</FeatureBadge>)}</div>
               </section>
               <section>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Furniture Layout</p>
-                <div className="flex flex-wrap gap-2">
-                  {furnitureLabels.map((label) => (
-                    <FeatureBadge key={label} animated={false}>{label}</FeatureBadge>
-                  ))}
-                </div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)] mb-1">Furniture Layout</p>
+                <div className="flex flex-wrap gap-1.5">{furnitureLabels.map((label) => <FeatureBadge key={label} animated={false}>{label}</FeatureBadge>)}</div>
               </section>
             </>
           )}

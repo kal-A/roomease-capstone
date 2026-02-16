@@ -60,6 +60,19 @@ function HomePageContent() {
             >
               Learn More
             </a>
+            <a
+              href="#about"
+              onClick={(e) => {
+                e.preventDefault();
+                const element = document.getElementById("about");
+                if (element) {
+                  element.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+              }}
+              className="w-full rounded-full border border-[rgba(255,255,255,0.08)] bg-transparent px-8 py-4 text-center text-base font-semibold text-[rgba(255,255,255,0.65)] transition-all duration-200 hover:border-[#FFD54A]/40 hover:text-[#FFD54A] sm:w-auto"
+            >
+              About Us
+            </a>
           </div>
         </div>
       </section>

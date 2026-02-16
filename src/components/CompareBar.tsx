@@ -9,7 +9,9 @@ export function CompareBar() {
   const { compareIds, clearCompare } = useCompare();
   const pathname = usePathname();
   const showOnRoomsPage = pathname === "/rooms";
-  const show = compareIds.length >= 2 && showOnRoomsPage;
+  const hideOnComparePage = pathname === "/compare";
+  const show = compareIds.length >= 1 && showOnRoomsPage && !hideOnComparePage;
+  const canCompare = compareIds.length >= 2;
 
   return (
     <AnimatePresence>
@@ -22,10 +24,15 @@ export function CompareBar() {
           className="fixed bottom-0 left-0 right-0 z-40 overflow-hidden border-t border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.85)] backdrop-blur-xl shadow-[0_-8px_32px_rgba(0,0,0,0.35)]"
         >
           <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-6 py-4 sm:px-8">
-            <p className="text-sm font-medium text-[rgba(255,255,255,0.92)]">
-              <span className="text-[#FFD54A]">{compareIds.length}</span> room
-              {compareIds.length !== 1 ? "s" : ""} selected
-            </p>
+            <div>
+              <p className="text-sm font-medium text-[rgba(255,255,255,0.92)]">
+                <span className="text-[#FFD54A]">{compareIds.length}</span> room
+                {compareIds.length !== 1 ? "s" : ""} selected
+              </p>
+              {compareIds.length === 1 && (
+                <p className="text-xs text-[rgba(255,255,255,0.65)] mt-0.5">Add another to compare</p>
+              )}
+            </div>
             <div className="flex gap-3">
               <button
                 type="button"
@@ -35,8 +42,15 @@ export function CompareBar() {
                 Clear
               </button>
               <Link
-                href="/compare"
-                className="rounded-full bg-[#FFD54A] px-6 py-2.5 text-sm font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[#F6C445] hover:shadow-[#FFD54A]/25 focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/50"
+                href={canCompare ? "/compare" : "#"}
+                aria-disabled={!canCompare}
+                title={!canCompare ? "Add at least 2 rooms to compare" : undefined}
+                className={`rounded-full px-6 py-2.5 text-sm font-semibold shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/50 ${
+                  canCompare
+                    ? "bg-[#FFD54A] text-black hover:bg-[#F6C445] hover:shadow-[#FFD54A]/25"
+                    : "bg-[rgba(255,255,255,0.12)] text-[rgba(255,255,255,0.48)] cursor-not-allowed pointer-events-none"
+                }`}
+                onClick={(e) => !canCompare && e.preventDefault()}
               >
                 Compare
               </Link>

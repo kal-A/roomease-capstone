@@ -99,16 +99,16 @@ export default function AnalyticsPage() {
           </Link>
         </motion.div>
       ) : (
-        <div className="grid gap-8 lg:grid-cols-2">
+        <div className="grid gap-8 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 auto-rows-fr" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))" }}>
           {/* Section 1 — Most Booked Buildings (bar chart) */}
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-8 shadow-lg"
+            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">Most Booked Buildings</h2>
-            <div className="h-64">
+            <div className="min-h-[200px] flex-1 flex items-stretch">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={byBuildingList}
@@ -150,7 +150,7 @@ export default function AnalyticsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-8 shadow-lg"
+            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">Most Booked Rooms</h2>
             <ul className="space-y-3">
@@ -185,10 +185,10 @@ export default function AnalyticsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.2 }}
-            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-8 shadow-lg"
+            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">Capacity Distribution</h2>
-            <div className="h-64">
+            <div className="min-h-[200px] flex-1 flex items-stretch">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={capacityData}
@@ -224,10 +224,10 @@ export default function AnalyticsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.3 }}
-            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-8 shadow-lg"
+            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">Booking Trends</h2>
-            <div className="h-64">
+            <div className="min-h-[200px] flex-1 flex items-stretch">
               {trendsData.length === 0 ? (
                 <p className="flex h-full items-center justify-center text-sm text-[rgba(255,255,255,0.65)]">No date data yet</p>
               ) : (

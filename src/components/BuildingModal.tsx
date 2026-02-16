@@ -48,7 +48,7 @@ export function BuildingModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden"
       role="dialog"
       aria-modal="true"
       aria-labelledby="building-modal-title"
@@ -58,7 +58,7 @@ export function BuildingModal({
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative z-10 w-full max-w-md max-h-[90vh] flex flex-col rounded-2xl border border-[#2A2A2A] bg-[#1A1A1A] shadow-2xl">
+      <div className="relative z-10 w-full max-w-md max-h-[85vh] flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] shadow-[var(--shadow-xl)]">
         <div className="flex shrink-0 flex-col gap-1 border-b border-[#2A2A2A] p-4">
           <h2 id="building-modal-title" className="text-lg font-semibold text-white">
             Select a Building

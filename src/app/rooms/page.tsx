@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { RoomDashboardCard } from "@/components/RoomDashboardCard";
 import { RoomDetailsModal } from "@/components/RoomDetailsModal";
@@ -24,6 +24,16 @@ export default function RoomsDashboardPage() {
 
   const handleHoverStart = useCallback((room: Room) => () => setHoveredRoomId(room.id), []);
   const handleHoverEnd = useCallback(() => setHoveredRoomId(null), []);
+
+  useEffect(() => {
+    if (filtersOpen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [filtersOpen]);
 
   return (
     <div className="relative bg-transparent">
@@ -162,7 +172,8 @@ export default function RoomsDashboardPage() {
               aria-hidden="true"
             />
             <motion.aside
-              className="fixed inset-y-0 right-0 z-50 w-full max-w-md border-l border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.85)] backdrop-blur-xl p-8 shadow-2xl"
+              className="fixed inset-0 left-[auto] right-0 z-50 w-full max-w-md border-l border-[var(--border)] bg-[var(--surfaceElevated)] shadow-[var(--shadowXl)] overflow-y-auto"
+              style={{ paddingTop: "max(env(safe-area-inset-top), 3.5rem)", paddingBottom: "2rem", paddingLeft: "2rem", paddingRight: "2rem" }}
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
@@ -173,15 +184,15 @@ export default function RoomsDashboardPage() {
             >
               <div className="mb-6 flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">Filters</h2>
-                  <p className="mt-1 text-sm text-[rgba(255,255,255,0.65)]">
+                  <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">Filters</h2>
+                  <p className="mt-1 text-sm text-[var(--foreground-secondary)]">
                     Refine by capacity, AV, furniture, and building.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setFiltersOpen(false)}
-                  className="rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] px-4 py-2 text-sm text-[rgba(255,255,255,0.65)] transition-all duration-200 hover:border-[rgba(255,255,255,0.12)] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
+                  className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--foreground-secondary)] transition-all duration-200 hover:border-[var(--border-hover)] hover:text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
                 >
                   Close
                 </button>

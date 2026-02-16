@@ -43,28 +43,21 @@ export function RoomRecommendation({
   const [bestMatch, ...otherRooms] = matchingRooms;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {doubleBookingError && (
-        <div
-          className="rounded-xl border-2 border-[#FFD100]/60 bg-[#FFD100]/10 p-4 text-sm font-medium text-[#FFD100]"
-          role="alert"
-        >
+        <div className="rounded-xl border-2 border-[var(--gold-border)] bg-[var(--gold-subtle)] p-3 text-sm font-medium text-[var(--gold)]" role="alert">
           {doubleBookingError}
         </div>
       )}
 
       <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-xl border border-[#2A2A2A] bg-transparent px-4 py-2.5 font-medium text-gray-400 transition hover:border-[#FFD100]/50 hover:text-[#FFD100]"
-        >
+        <button type="button" onClick={onBack} className="rounded-xl border border-[var(--border)] bg-transparent px-4 py-2 text-sm font-medium text-[var(--foreground-secondary)] transition hover:border-[var(--gold-border)] hover:text-[var(--gold)]">
           Back
         </button>
       </div>
 
       <div>
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-[#FFD100]">Best Match</h3>
+        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--gold)]">Best Match</h3>
         <RoomCard
           room={bestMatch}
           groupSize={formData.groupSize}
@@ -80,10 +73,8 @@ export function RoomRecommendation({
 
       {otherRooms.length > 0 && (
         <div>
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
-            Other Available Rooms
-          </h3>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--foreground-tertiary)]">Other Available Rooms</h3>
+          <div className="grid gap-3 sm:grid-cols-2">
             {otherRooms.map((room) => (
               <RoomCard
                 key={String(room.id)}

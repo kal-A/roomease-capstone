@@ -6,11 +6,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ROOMS, getBuildingsFromRooms } from "@/data/rooms";
 import type { EventFormData, Room } from "@/types/booking";
 import {
+  formatTimeSlot,
   roomHasDocumentCamera,
   roomIsElectronicClassroom,
   roomIsStreamingRecordingCapable,
   timeRangesOverlap,
   timeToMinutes,
+  TIME_SLOTS_30MIN,
 } from "@/types/booking";
 import { furnitureLabelsFromCodes } from "@/lib/furniture";
 import { useBookings } from "@/lib/bookingsStore";
@@ -154,12 +156,25 @@ function BookPageContent() {
   const [selectedRoomError, setSelectedRoomError] = useState<string[] | null>(null);
   const [directBookingError, setDirectBookingError] = useState<string | null>(null);
   const [roomsLoading, setRoomsLoading] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingBooking, setPendingBooking] = useState<{ room: Room; formData: EventFormData } | null>(null);
 
   const matchingRooms = useMemo(() => getMatchingRooms(formData), [formData]);
   const lockedRoom = useMemo(() => {
     if (!roomIdFromUrl) return null;
     return ROOMS.find((r) => String(r.id) === String(roomIdFromUrl)) ?? null;
   }, [roomIdFromUrl]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [step]);
+
+  useEffect(() => {
+    if (showConfirmModal) {
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = ""; };
+    }
+  }, [showConfirmModal]);
 
   useEffect(() => {
     if (step === 2 && !lockedRoom) {
@@ -188,7 +203,7 @@ function BookPageContent() {
     setStep(2);
   }, []);
 
-  /** Direct booking: validate capacity + double booking only, then confirm or show error. */
+  /** Direct booking: validate, then show confirmation modal. */
   const handleDirectBookingSubmit = useCallback(() => {
     if (!lockedRoom) return;
     setDirectBookingError(null);
@@ -210,11 +225,9 @@ function BookPageContent() {
       setDirectBookingError("This room is already booked for that time.");
       return;
     }
-    setSelectedRoom(lockedRoom);
-    const booking = addBooking({ form: formData, room: lockedRoom });
-    setConfirmationNumber(booking.confirmationNumber);
-    setStep(2);
-  }, [lockedRoom, formData, existingBookings, addBooking]);
+    setPendingBooking({ room: lockedRoom, formData });
+    setShowConfirmModal(true);
+  }, [lockedRoom, formData, existingBookings]);
 
   const handleSelectRoom = useCallback(
     (room: Room) => {
@@ -223,14 +236,22 @@ function BookPageContent() {
         setDoubleBookingError(validation.errors[0] ?? "This room cannot be booked with the selected constraints.");
         return;
       }
-      setSelectedRoom(room);
-      const booking = addBooking({ form: formData, room });
-      setConfirmationNumber(booking.confirmationNumber);
-      setDoubleBookingError(null);
-      setStep(3);
+      setPendingBooking({ room, formData });
+      setShowConfirmModal(true);
     },
-    [formData, existingBookings, addBooking]
+    [formData, existingBookings]
   );
+
+  const handleConfirmBooking = useCallback(() => {
+    if (!pendingBooking) return;
+    const booking = addBooking({ form: pendingBooking.formData, room: pendingBooking.room });
+    setConfirmationNumber(booking.confirmationNumber);
+    setSelectedRoom(pendingBooking.room);
+    setDoubleBookingError(null);
+    setShowConfirmModal(false);
+    setPendingBooking(null);
+    setStep(3);
+  }, [pendingBooking, addBooking]);
 
   const handleBack = useCallback(() => {
     setDoubleBookingError(null);
@@ -262,7 +283,7 @@ function BookPageContent() {
   }, [lockedRoom, formData, existingBookings, addBooking]);
 
   return (
-    <div className="mx-auto max-w-[1200px] px-6 py-12 sm:px-8 sm:py-16 lg:px-10">
+    <div className="mx-auto max-w-[1200px] px-6 py-6 sm:px-8 sm:py-10 lg:px-10">
       <div className="mx-auto max-w-2xl">
         <ProgressStepper currentStep={step} totalSteps={totalSteps} />
 
@@ -311,6 +332,44 @@ function BookPageContent() {
               buildings={buildingsList}
               directBooking={!!lockedRoom}
             />
+            {lockedRoom && formData.preferredDate && formData.timeSlot && (() => {
+              const date = formData.preferredDate ?? "";
+              const startM = timeToMinutes(formData.timeSlot ?? "");
+              const durationM = formData.durationMinutes ?? 60;
+              const roomBookings = existingBookings.filter((b) => b.roomId === String(lockedRoom.id) && b.preferredDate === date);
+              const overlap = roomBookings.some((b) => {
+                const existingStart = timeToMinutes(b.timeSlot);
+                const existingDuration = b.durationMinutes ?? 60;
+                return timeRangesOverlap(existingStart, existingDuration, startM, durationM);
+              });
+              const nextAvailable: string[] = [];
+              if (overlap) {
+                for (const slot of TIME_SLOTS_30MIN) {
+                  const slotStart = timeToMinutes(slot.value);
+                  const conflict = roomBookings.some((b) => {
+                    const existingStart = timeToMinutes(b.timeSlot);
+                    const existingDuration = b.durationMinutes ?? 60;
+                    return timeRangesOverlap(existingStart, existingDuration, slotStart, durationM);
+                  });
+                  if (!conflict && nextAvailable.length < 3) nextAvailable.push(slot.label);
+                }
+              }
+              return (
+                <div className="mt-4 rounded-xl border border-[var(--borderDivider)] bg-[var(--surface)] p-4">
+                  <p className="text-sm font-medium text-[var(--textSecondary)] mb-1">Availability for this room</p>
+                  {overlap ? (
+                    <div>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/15 px-3 py-1.5 text-sm font-medium text-red-600 border border-red-500/30">Not available for this date & time</span>
+                      {nextAvailable.length > 0 && (
+                        <p className="mt-2 text-xs text-[var(--textMuted)]">Next available: {nextAvailable.slice(0, 3).join(", ")}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1.5 text-sm font-medium text-emerald-600 border border-emerald-500/30">Available</span>
+                  )}
+                </div>
+              );
+            })()}
           </motion.div>
         )}
 
@@ -321,8 +380,9 @@ function BookPageContent() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -12 }}
             transition={{ duration: 0.25 }}
+            className="space-y-4"
           >
-            <h2 className="mb-8 text-2xl font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">Room Results</h2>
+            <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--foreground)]">Room Results</h2>
             {roomsLoading ? (
               <div className="space-y-4">
                 {[1, 2, 3].map((i) => (
@@ -360,7 +420,7 @@ function BookPageContent() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-8 shadow-xl sm:p-10"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-lg sm:p-8"
           >
             <ConfirmationPage
               formData={formData}
@@ -371,6 +431,35 @@ function BookPageContent() {
           </motion.div>
         )}
         </AnimatePresence>
+
+        {showConfirmModal && pendingBooking && (() => {
+          const startM = timeToMinutes(pendingBooking.formData.timeSlot ?? "");
+          const durationM = pendingBooking.formData.durationMinutes ?? 60;
+          const endM = startM + durationM;
+          const endH = Math.floor(endM / 60);
+          const endMin = endM % 60;
+          const endPeriod = endH >= 12 ? "PM" : "AM";
+          const endH12 = endH > 12 ? endH - 12 : endH === 0 ? 12 : endH;
+          const timeRangeLabel = `${formatTimeSlot(pendingBooking.formData.timeSlot ?? "")} – ${endH12}:${String(endMin).padStart(2, "0")} ${endPeriod}`;
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden">
+              <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => { setShowConfirmModal(false); setPendingBooking(null); }} aria-hidden />
+              <div className="relative z-10 w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--surfaceElevated)] p-5 shadow-[var(--shadowXl)] max-h-[90vh] flex flex-col">
+                <h3 className="text-base font-semibold text-[var(--text)]">Confirm booking</h3>
+                <p className="mt-1.5 text-sm text-[var(--textSecondary)]">Are you sure you want to book this room?</p>
+                <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 space-y-1 text-sm">
+                  <p><span className="text-[var(--textMuted)]">Room:</span> <span className="font-medium text-[var(--text)]">{pendingBooking.room.name}</span></p>
+                  <p><span className="text-[var(--textMuted)]">Date:</span> <span className="text-[var(--text)]">{pendingBooking.formData.preferredDate}</span></p>
+                  <p><span className="text-[var(--textMuted)]">Time:</span> <span className="text-[var(--text)] font-medium">{timeRangeLabel}</span></p>
+                </div>
+                <div className="mt-4 flex gap-3">
+                  <button type="button" onClick={() => { setShowConfirmModal(false); setPendingBooking(null); }} className="flex-1 rounded-xl border border-[var(--border)] py-2.5 text-sm font-medium text-[var(--textSecondary)] hover:bg-[var(--borderDivider)]">Cancel</button>
+                  <button type="button" onClick={handleConfirmBooking} className="flex-1 rounded-xl bg-[var(--primary)] py-2.5 text-sm font-semibold text-black hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]">Confirm</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
