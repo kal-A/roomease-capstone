@@ -65,13 +65,13 @@ export function RoomCard({
 
   return (
     <motion.div
-      className={`relative rounded-xl border-2 bg-[#1A1A1A] p-6 shadow-xl ${
-        isBestMatch ? "border-[#FFD100]/60" : "border-[#2A2A2A] hover:border-[#FFD100]/40"
+      className={`card-elevated relative p-6 ${
+        isBestMatch ? "border-[var(--primary)]/50" : ""
       }`}
+      style={{ borderRadius: "var(--radiusLg)", borderWidth: isBestMatch ? "2px" : "1px" }}
       initial={false}
       whileHover={{
-        scale: 1.02,
-        boxShadow: "0 20px 40px -12px rgba(255, 209, 0, 0.12)",
+        scale: 1.01,
         transition: { duration: 0.2 },
       }}
       transition={{ duration: 0.2 }}
@@ -88,7 +88,7 @@ export function RoomCard({
               e.stopPropagation();
               setMenuOpen((open) => !open);
             }}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-gray-300 opacity-0 transition hover:bg-[#222] hover:text-white focus:bg-[#222] focus:text-white focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:ring-offset-2 focus:ring-offset-[#1A1A1A] group-hover:opacity-100"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--surfaceElevated)] border border-[var(--border)] text-[var(--icon)] opacity-0 transition hover:bg-[var(--border)]/50 hover:text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] group-hover:opacity-100"
           >
             <svg
               aria-hidden="true"
@@ -104,7 +104,7 @@ export function RoomCard({
           </button>
           {menuOpen && (
             <div
-              className="absolute right-0 mt-2 w-44 rounded-lg border border-[#2A2A2A] bg-[#111111] py-1 shadow-xl"
+              className="absolute right-0 mt-2 w-44 rounded-lg border border-[var(--border)] bg-[var(--surfaceElevated)] py-1 shadow-[var(--shadowLg)]"
               onClick={(e) => e.stopPropagation()}
             >
               <button
@@ -113,7 +113,7 @@ export function RoomCard({
                   toggleCompare(room.id);
                   setMenuOpen(false);
                 }}
-                className="flex w-full items-center px-3 py-2 text-left text-sm text-gray-200 hover:bg-[#1f1f1f]"
+                className="flex w-full items-center px-3 py-2 text-left text-sm text-[var(--text)] hover:bg-[var(--border)]/50"
               >
                 {inCompare ? "Remove from compare" : "Add to compare"}
               </button>
@@ -122,23 +122,23 @@ export function RoomCard({
         </div>
       </div>
       {isBestMatch && (
-        <div className="mb-4 inline-flex rounded-full bg-[#FFD100]/20 px-3 py-1 text-sm font-semibold text-[#FFD100]">
+        <div className="mb-4 inline-flex rounded-full bg-[var(--primary)]/12 border border-[var(--primary)]/30 px-3 py-1 text-sm font-semibold text-[var(--primary)]">
           Best Match
         </div>
       )}
       <div className="mb-4">
-        <h2 className="text-xl font-semibold text-white">{room.name}</h2>
-        <p className="mt-1 text-gray-400">{getBuildingTicketLabel(room.building)}</p>
+        <h2 className="text-xl font-semibold text-[var(--text)]">{room.name}</h2>
+        <p className="mt-1 text-[var(--textSecondary)]">{getBuildingTicketLabel(room.building)}</p>
       </div>
-      <p className="mb-3 text-gray-400">
-        Capacity: <span className="text-white font-medium">{room.capacity}</span>
+      <p className="mb-3 text-[var(--textSecondary)]">
+        Capacity: <span className="text-[var(--text)] font-medium">{room.capacity}</span>
       </p>
       <div className="mb-4 space-y-3">
         <AVAndFurnitureSections room={room} animatedBadges />
       </div>
-      <div className="mb-6 rounded-lg border border-[#2A2A2A] bg-[#111111] p-3">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Why this room</p>
-        <ul className="space-y-1 text-sm text-gray-300">
+      <div className="mb-6 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Why this room</p>
+        <ul className="space-y-1 text-sm text-[var(--textSecondary)]">
           <li>• Fits your group size</li>
           {avNeedsEnabled && needsStreaming && <li>• {meetsStreaming ? "Streaming & recording ready" : "Streaming & recording not available"}</li>}
           {avNeedsEnabled && needsElectronic && <li>• {meetsElectronic ? "Electronic classroom" : "Electronic classroom not available"}</li>}
@@ -152,14 +152,15 @@ export function RoomCard({
         <button
           type="button"
           onClick={onSelect}
-          className="flex-1 rounded-xl bg-[#FFD100] px-4 py-3 font-semibold text-black shadow-lg transition hover:bg-[#e6bc00] focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:ring-offset-2 focus:ring-offset-[#1A1A1A]"
+          className="flex-1 rounded-xl bg-[var(--primary)] px-4 py-3 font-semibold shadow-md transition hover:bg-[var(--primaryHover)] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
+          style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}
         >
           Book this room
         </button>
         <button
           type="button"
           onClick={onViewDetails}
-          className="rounded-xl border border-[#2A2A2A] bg-transparent px-4 py-3 font-medium text-gray-400 transition hover:border-[#FFD100]/50 hover:text-[#FFD100] focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:ring-offset-2 focus:ring-offset-[#1A1A1A]"
+          className="rounded-xl border border-[var(--border)] bg-transparent px-4 py-3 font-medium text-[var(--textSecondary)] transition hover:border-[var(--primary)]/50 hover:text-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
         >
           View details
         </button>

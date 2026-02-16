@@ -16,6 +16,7 @@ import { BuildingButton } from "./BuildingButton";
 import { DatePickerButton } from "./DatePickerButton";
 import { EventTypeSelector } from "./EventTypeSelector";
 import { TimeSlotButton } from "./TimeSlotButton";
+import { TimeBar } from "./TimeBar";
 
 interface EventFormProps {
   data: EventFormData;
@@ -24,6 +25,10 @@ interface EventFormProps {
   buildings: { value: string; label: string }[];
   /** When true, show only: Event Name, Organizer, Date, Time, Duration, Group Size. CTA: "Confirm Booking". */
   directBooking?: boolean;
+  /** Room ID for availability checking (when booking a specific room) */
+  roomId?: string | number;
+  /** Existing bookings for availability checking */
+  existingBookings?: { roomId: string; preferredDate: string; timeSlot: string; durationMinutes: number }[];
 }
 
 const defaultFormData: Partial<EventFormData> = {
@@ -45,7 +50,7 @@ const defaultFormData: Partial<EventFormData> = {
 const CUSTOM_HOURS = [0, 1, 2, 3, 4, 5, 6];
 const CUSTOM_MINUTES = [0, 15, 30, 45];
 
-export function EventForm({ data, onChange, onSubmit, buildings, directBooking }: EventFormProps) {
+export function EventForm({ data, onChange, onSubmit, buildings, directBooking, roomId, existingBookings = [] }: EventFormProps) {
   const formData = { ...defaultFormData, ...data };
   const durationMin = formData.durationMinutes ?? 60;
   const isPreset = DURATION_PRESETS.some((p) => p.value === durationMin);
@@ -110,133 +115,18 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking }
   };
 
   const inputClass =
-    "w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md px-5 py-3.5 text-[rgba(255,255,255,0.92)] placeholder-[rgba(255,255,255,0.48)] focus:border-[#FFD54A]/50 focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30 transition-all duration-200";
-  const labelClass = "mb-2 block text-sm font-medium text-[rgba(255,255,255,0.65)]";
+    "w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md px-5 py-3.5 text-[var(--text)] placeholder-[var(--textMuted)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] transition-all duration-200";
+  const labelClass = "mb-2 block text-sm font-medium text-[var(--textSecondary)]";
   const textareaClass =
-    "w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md px-5 py-3.5 text-[rgba(255,255,255,0.92)] placeholder-[rgba(255,255,255,0.48)] focus:border-[#FFD54A]/50 focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30 transition-all duration-200 resize-none";
+    "w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md px-5 py-3.5 text-[var(--text)] placeholder-[var(--textMuted)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] transition-all duration-200 resize-none";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* 1. Preferred Date */}
-      <DatePickerButton
-        value={formData.preferredDate ?? ""}
-        onChange={(v) => set("preferredDate", v)}
-        label="Preferred Date"
-        required
-      />
-
-      {/* 2. Preferred Time Slot */}
-      <TimeSlotButton
-        id="timeSlot"
-        label="Preferred Time Slot"
-        value={formData.timeSlot ?? ""}
-        onChange={(v) => set("timeSlot", v)}
-        required
-      />
-
-      {/* 3. Event Duration */}
-      <div>
-        <p className={labelClass}>
-          Event Duration <span className="text-[#FFD54A]">*</span>
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {DURATION_PRESETS.map((opt) => {
-            const isSelected = !isCustomDuration && durationMin === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => {
-                  setIsCustomDuration(false);
-                  set("durationMinutes", opt.value);
-                }}
-                className={`rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30 ${
-                  isSelected
-                    ? "border-2 border-[#FFD54A] bg-[#FFD54A] text-black shadow-lg"
-                    : "border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] text-[rgba(255,255,255,0.65)] hover:border-[rgba(255,255,255,0.12)] hover:text-white"
-                }`}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => setIsCustomDuration(true)}
-            className={`rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30 ${
-              isCustomDuration
-                ? "border-2 border-[#FFD54A] bg-[#FFD54A] text-black shadow-lg"
-                : "border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] text-[rgba(255,255,255,0.65)] hover:border-[rgba(255,255,255,0.12)] hover:text-white"
-            }`}
-          >
-            Custom
-          </button>
-        </div>
-        {isCustomDuration && (
-          <div className="mt-4 overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-5 transition-all duration-200">
-            <p className="mb-4 text-sm text-[rgba(255,255,255,0.65)]">Custom duration (30 min – 6 h)</p>
-            <div className="flex flex-wrap items-center gap-4">
-              <div>
-                <label htmlFor="durHours" className="mb-1 block text-xs text-[rgba(255,255,255,0.48)]">Hours</label>
-                <select
-                  id="durHours"
-                  value={customHours}
-                  onChange={(e) => setCustomDuration(Number(e.target.value), customMinutes)}
-                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] px-4 py-2.5 text-[rgba(255,255,255,0.92)] focus:border-[#FFD54A]/50 focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30 transition-all duration-200"
-                >
-                  {CUSTOM_HOURS.map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="durMinutes" className="mb-1 block text-xs text-[rgba(255,255,255,0.48)]">Minutes</label>
-                <select
-                  id="durMinutes"
-                  value={customMinutes}
-                  onChange={(e) => setCustomDuration(customHours, Number(e.target.value))}
-                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] px-4 py-2.5 text-[rgba(255,255,255,0.92)] focus:border-[#FFD54A]/50 focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30 transition-all duration-200"
-                >
-                  {CUSTOM_MINUTES.map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
-              <p className="text-sm text-[#FFD54A]">
-                Custom duration: {formatDuration(durationMin)}
-              </p>
-            </div>
-            {!durationValid && (
-              <p className="mt-3 text-xs text-red-400">
-                Duration must be between 30 min and 6 h.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* 4. Group Size */}
-      <div>
-        <label htmlFor="groupSize" className={labelClass}>
-          Group Size <span className="text-[#FFD54A]">*</span>
-        </label>
-        <input
-          id="groupSize"
-          type="number"
-          min={1}
-          value={formData.groupSize || ""}
-          onChange={(e) => set("groupSize", parseInt(e.target.value, 10) || 0)}
-          className={inputClass}
-          placeholder="e.g. 20"
-          required
-        />
-      </div>
-
       {/* Event Name, Organizer (and Event Type only in full flow) */}
       <div className="grid gap-6 sm:grid-cols-2">
         <div>
           <label htmlFor="eventName" className={labelClass}>
-            Event Name <span className="text-[#FFD100]">*</span>
+            Event Name <span className="text-[var(--primary)]">*</span>
           </label>
           <input
             id="eventName"
@@ -250,7 +140,7 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking }
         </div>
         <div>
           <label htmlFor="organizerName" className={labelClass}>
-            Organizer / Club Name <span className="text-[#FFD100]">*</span>
+            Organizer / Club Name <span className="text-[var(--primary)]">*</span>
           </label>
           <input
             id="organizerName"
@@ -280,6 +170,142 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking }
         </div>
       )}
 
+      {/* 1. Preferred Date */}
+      <DatePickerButton
+        value={formData.preferredDate ?? ""}
+        onChange={(v) => set("preferredDate", v)}
+        label="Preferred Date"
+        required
+      />
+
+      {/* 2. Preferred Time Slot */}
+      <TimeSlotButton
+        id="timeSlot"
+        label="Preferred Time Slot"
+        value={formData.timeSlot ?? ""}
+        onChange={(v) => set("timeSlot", v)}
+        required
+      />
+
+      {/* 3. Event Duration */}
+      <div>
+        <p className={labelClass}>
+          Event Duration <span className="text-[var(--primary)]">*</span>
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {DURATION_PRESETS.map((opt) => {
+            const isSelected = !isCustomDuration && durationMin === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  setIsCustomDuration(false);
+                  set("durationMinutes", opt.value);
+                }}
+                className={`rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] ${
+                  isSelected
+                    ? "border-2 border-[var(--primary)] bg-[var(--primary)] shadow-md"
+                    : "border border-[var(--border)] bg-[var(--surface)] text-[var(--textSecondary)] hover:border-[var(--borderStrong)] hover:text-[var(--text)]"
+                }`}
+                style={isSelected ? { color: "var(--primaryText)" } : undefined}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => setIsCustomDuration(true)}
+            className={`rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] ${
+              isCustomDuration
+                ? "border-2 border-[var(--primary)] bg-[var(--primary)] shadow-md"
+                : "border border-[var(--border)] bg-[var(--surface)] text-[var(--textSecondary)] hover:border-[var(--borderStrong)] hover:text-[var(--text)]"
+            }`}
+            style={isCustomDuration ? { color: "var(--primaryText)" } : undefined}
+          >
+            Custom
+          </button>
+        </div>
+        {isCustomDuration && (
+          <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-5 transition-all duration-200">
+            <p className="mb-4 text-sm text-[var(--textSecondary)]">Custom duration (30 min – 6 h)</p>
+            <div className="flex flex-wrap items-center gap-4">
+              <div>
+                <label htmlFor="durHours" className="mb-1 block text-xs text-[var(--textMuted)]">Hours</label>
+                <select
+                  id="durHours"
+                  value={customHours}
+                  onChange={(e) => setCustomDuration(Number(e.target.value), customMinutes)}
+                  className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-[var(--text)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] transition-all duration-200"
+                >
+                  {CUSTOM_HOURS.map((h) => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="durMinutes" className="mb-1 block text-xs text-[var(--textMuted)]">Minutes</label>
+                <select
+                  id="durMinutes"
+                  value={customMinutes}
+                  onChange={(e) => setCustomDuration(customHours, Number(e.target.value))}
+                  className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-[var(--text)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] transition-all duration-200"
+                >
+                  {CUSTOM_MINUTES.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-sm text-[var(--primary)] font-medium">
+                Custom duration: {formatDuration(durationMin)}
+              </p>
+            </div>
+            {!durationValid && (
+              <div className="mt-3 flex items-start gap-2 rounded-lg border border-[var(--danger)]/50 bg-[var(--dangerBg)] p-3">
+                <svg className="h-4 w-4 shrink-0 text-[var(--danger)] mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <p className="text-xs font-medium text-[var(--danger)]">
+                  Duration must be between 30 min and 6 h.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Availability Time Bar (only when booking a specific room) */}
+      {directBooking && roomId && formData.preferredDate && formData.timeSlot && (
+        <TimeBar
+          roomId={roomId}
+          date={formData.preferredDate}
+          timeSlot={formData.timeSlot}
+          durationMinutes={formData.durationMinutes ?? 60}
+          existingBookings={existingBookings}
+          onAdjustToNextAvailable={(newTimeSlot) => {
+            onChange({ ...formData, timeSlot: newTimeSlot });
+          }}
+        />
+      )}
+
+      {/* 4. Group Size */}
+      <div>
+        <label htmlFor="groupSize" className={labelClass}>
+          Group Size <span className="text-[var(--primary)]">*</span>
+        </label>
+        <input
+          id="groupSize"
+          type="number"
+          min={1}
+          value={formData.groupSize || ""}
+          onChange={(e) => set("groupSize", parseInt(e.target.value, 10) || 0)}
+          className={inputClass}
+          placeholder="e.g. 20"
+          required
+        />
+      </div>
+
       {/* AV section (full flow only) */}
       {!directBooking && (
       <div className="space-y-4">
@@ -288,16 +314,16 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking }
             type="checkbox"
             checked={formData.avNeedsEnabled ?? false}
             onChange={(e) => set("avNeedsEnabled", e.target.checked)}
-            className="h-4 w-4 rounded border-[#2A2A2A] bg-[#111111] text-[#FFD100] focus:ring-[#FFD100]"
+            className="h-4 w-4 rounded border-[var(--border)] bg-[var(--surface)] text-[var(--primary)] focus:ring-[var(--focusRing)]"
           />
-          <span className="text-sm font-medium text-gray-400">I need AV / equipment</span>
+          <span className="text-sm font-medium text-[var(--textSecondary)]">I need AV / equipment</span>
         </label>
         <div
           className="overflow-hidden transition-[max-height] duration-200 ease-out"
           style={{ maxHeight: formData.avNeedsEnabled ? "400px" : "0" }}
         >
           <div className="pt-3 space-y-3">
-            <p className="text-sm text-gray-500">What do you need?</p>
+            <p className="text-sm text-[var(--textSecondary)]">What do you need?</p>
             <div className="flex flex-wrap gap-2">
               {AV_NEED_OPTIONS.map((opt) => {
                 const isSelected =
@@ -307,10 +333,10 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking }
                     key={opt.value}
                     type="button"
                     onClick={() => toggleAvNeed(opt.value)}
-                    className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:ring-offset-2 focus:ring-offset-[#1A1A1A] ${
+                    className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] ${
                       isSelected
-                        ? "border-2 border-[#FFD100] bg-[#FFD100]/20 text-[#FFD100]"
-                        : "border border-[#2A2A2A] bg-[#111111] text-gray-400 hover:border-[#FFD100]/50 hover:text-white"
+                        ? "border-2 border-[var(--primary)] bg-[var(--primary)]/15 text-[var(--primary)]"
+                        : "border border-[var(--border)] bg-[var(--surface)] text-[var(--textSecondary)] hover:border-[var(--primary)]/50 hover:text-[var(--text)]"
                     }`}
                   >
                     {opt.label}
@@ -319,8 +345,8 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking }
               })}
             </div>
             <div>
-              <label htmlFor="avNotes" className="mb-1.5 block text-sm font-medium text-gray-500">
-                Additional AV notes <span className="text-gray-500">(optional)</span>
+              <label htmlFor="avNotes" className="mb-1.5 block text-sm font-medium text-[var(--textSecondary)]">
+                Additional AV notes <span className="text-[var(--textMuted)]">(optional)</span>
               </label>
               <textarea
                 id="avNotes"
@@ -340,16 +366,16 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking }
             type="checkbox"
             checked={formData.furnitureNeedsEnabled ?? false}
             onChange={(e) => set("furnitureNeedsEnabled", e.target.checked)}
-            className="h-4 w-4 rounded border-[#2A2A2A] bg-[#111111] text-[#FFD100] focus:ring-[#FFD100]"
+            className="h-4 w-4 rounded border-[var(--border)] bg-[var(--surface)] text-[var(--primary)] focus:ring-[var(--focusRing)]"
           />
-          <span className="text-sm font-medium text-gray-400">I have specific furniture needs</span>
+          <span className="text-sm font-medium text-[var(--textSecondary)]">I have specific furniture needs</span>
         </label>
         <div
           className="overflow-hidden transition-[max-height] duration-200 ease-out"
           style={{ maxHeight: formData.furnitureNeedsEnabled ? "420px" : "0" }}
         >
           <div className="pt-3 space-y-3">
-            <p className="text-sm text-gray-500">Select one option (rooms must match)</p>
+            <p className="text-sm text-[var(--textSecondary)]">Select one option (rooms must match)</p>
             <div className="flex flex-wrap gap-2">
               {furnitureOptions.map((label) => {
                 const isSelected = furnitureNeeds.includes(label);
@@ -358,10 +384,10 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking }
                     key={label}
                     type="button"
                     onClick={() => setFurnitureNeed(label)}
-                    className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:ring-offset-2 focus:ring-offset-[#1A1A1A] ${
+                    className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] ${
                       isSelected
-                        ? "border-2 border-[#FFD100] bg-[#FFD100]/20 text-[#FFD100]"
-                        : "border border-[#2A2A2A] bg-[#111111] text-gray-400 hover:border-[#FFD100]/50 hover:text-white"
+                        ? "border-2 border-[var(--primary)] bg-[var(--primary)]/15 text-[var(--primary)]"
+                        : "border border-[var(--border)] bg-[var(--surface)] text-[var(--textSecondary)] hover:border-[var(--primary)]/50 hover:text-[var(--text)]"
                     }`}
                   >
                     {label}
@@ -375,7 +401,7 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking }
       )}
 
       {!directBooking && (
-      <div className="grid gap-6 border-t border-[#2A2A2A] pt-6 sm:grid-cols-2">
+      <div className="grid gap-6 border-t border-[var(--border)] pt-6 sm:grid-cols-2">
         <BuildingButton
           value={formData.preferredBuilding ?? ""}
           onChange={(v) => set("preferredBuilding", v)}
@@ -384,7 +410,7 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking }
         />
         <div>
           <label htmlFor="priorityLevel" className={labelClass}>
-            Priority Level <span className="text-gray-500">(optional)</span>
+            Priority Level <span className="text-[var(--textMuted)]">(optional)</span>
           </label>
           <select
             id="priorityLevel"
@@ -406,7 +432,11 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking }
         <button
           type="submit"
           disabled={!isValid}
-          className="w-full rounded-xl bg-[#FFD100] px-6 py-4 text-lg font-semibold text-black shadow-lg transition-all duration-150 hover:bg-[#e6bc00] hover:shadow-[#FFD100]/25 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-[#FFD100] sm:w-auto sm:min-w-[220px]"
+          className="w-full rounded-xl bg-[var(--primary)] px-6 py-4 text-lg font-semibold shadow-md transition-all duration-150 hover:bg-[var(--primaryHover)] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-[var(--primary)] sm:w-auto sm:min-w-[220px]"
+          style={{ 
+            color: "var(--primaryText)",
+            boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" 
+          }}
         >
           {directBooking ? "Confirm Booking" : "Find Available Rooms"}
         </button>

@@ -128,8 +128,8 @@ export function RoomDashboardCard({
         <div className="mt-4 pt-4 border-t border-[var(--border)]">
           <Link
             href={`/book?roomId=${encodeURIComponent(String(room.id))}`}
-            className="flex h-10 w-full items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold text-black shadow-sm transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] focus:ring-offset-2 focus:ring-offset-[var(--surface)] active:scale-[0.98]"
-            style={{ boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}
+            className="flex h-10 w-full items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold shadow-sm transition-all duration-200 hover:bg-[var(--primaryHover)] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] focus:ring-offset-2 focus:ring-offset-[var(--surface)] active:scale-[0.98]"
+            style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}
           >
             Book this room
           </Link>
@@ -175,7 +175,7 @@ export function RoomDashboardCard({
                 <AVAndFurnitureSections room={room} animatedBadges={false} compact />
               </div>
               <div className="mt-5 flex flex-col gap-3 border-t border-[var(--border)] pt-4">
-                <Link href={`/book?roomId=${encodeURIComponent(String(room.id))}`} className="flex w-full items-center justify-center rounded-full bg-[var(--primary)] px-6 py-3.5 text-sm font-semibold text-black hover:bg-[var(--primaryHover)]">Book this room</Link>
+                <Link href={`/book?roomId=${encodeURIComponent(String(room.id))}`} className="flex w-full items-center justify-center rounded-full bg-[var(--primary)] px-6 py-3.5 text-sm font-semibold hover:bg-[var(--primaryHover)] hover:shadow-md" style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}>Book this room</Link>
                 <button type="button" onClick={() => { onViewDetails(); setQuickViewOpen(false); }} className="flex w-full items-center justify-center rounded-full border border-[var(--border)] bg-transparent px-6 py-3.5 text-sm font-semibold text-[var(--text)]">View details</button>
                 <button type="button" onClick={() => { toggleCompare(room.id); setQuickViewOpen(false); }} className="flex w-full items-center justify-center rounded-full border border-[var(--border)] bg-transparent px-6 py-3.5 text-sm font-medium text-[var(--textSecondary)]">{inCompare ? "Remove from compare" : "Add to compare"}</button>
                 <button type="button" onClick={() => setQuickViewOpen(false)} className="flex w-full items-center justify-center rounded-full border border-[var(--border)] px-6 py-3.5 text-sm text-[var(--textSecondary)] sm:hidden">Close</button>

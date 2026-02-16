@@ -37,7 +37,8 @@ function HomePageContent() {
           <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
               href="/book"
-              className="w-full rounded-full bg-[var(--primary)] px-8 py-4 text-center text-base font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] hover:-translate-y-0.5 sm:w-auto"
+              className="w-full rounded-full bg-[var(--primary)] px-8 py-4 text-center text-base font-semibold shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] hover:-translate-y-0.5 hover:shadow-xl sm:w-auto"
+              style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}
             >
               Start Booking
             </Link>

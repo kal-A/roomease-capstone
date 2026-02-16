@@ -43,12 +43,20 @@
   --textSecondary: rgba(255, 255, 255, 0.72);
   --textMuted: rgba(255, 255, 255, 0.55);
   --icon: rgba(255, 255, 255, 0.72);
-  --primary: #FFD54A;
-  --primaryHover: #F6C445;
-  --primaryGlow: rgba(255, 213, 74, 0.35);
+  /* Dark mode primary (deep gold, muted) */
+  --primary: #D4A017;
+  --primaryHover: #B89014;
+  --primaryGlow: rgba(212, 160, 23, 0.35);
+  --primaryText: #0B0B0C;
   --danger: #e57373;
   --dangerHover: #ef5350;
-  --focusRing: rgba(255, 213, 74, 0.5);
+  --success: #10b981;
+  --successHover: #059669;
+  --successBg: rgba(16, 185, 129, 0.12);
+  --successBorder: rgba(16, 185, 129, 0.30);
+  --dangerBg: rgba(229, 115, 115, 0.12);
+  --dangerBorder: rgba(229, 115, 115, 0.30);
+  --focusRing: rgba(212, 160, 23, 0.5);
   /* Shadow & elevation — cards medium, navbar highest */
   --shadowSm: 0 2px 8px rgba(0, 0, 0, 0.12);
   --shadowMd: 0 8px 24px rgba(0, 0, 0, 0.20);
@@ -73,10 +81,16 @@
   --surface-elevated: var(--surfaceElevated);
   --border-divider: rgba(255, 255, 255, 0.08);
   --border-hover: var(--borderStrong);
+  /* Unified gold system — badges, highlights, CTAs */
   --gold: var(--primary);
   --gold-hover: var(--primaryHover);
-  --gold-subtle: rgba(255, 213, 74, 0.15);
-  --gold-border: rgba(255, 213, 74, 0.4);
+  --gold-subtle: rgba(212, 160, 23, 0.12);
+  --gold-border: rgba(212, 160, 23, 0.35);
+  --gold-badge-bg: rgba(212, 160, 23, 0.12);
+  --gold-badge-border: rgba(212, 160, 23, 0.35);
+  --gold-badge-text: #D4A017;
+  --gold-text-on-dark: #D4A017;
+  --gold-text-on-light: #8b6914;
   --primaryBorder: var(--gold-border);
   --primarySubtle: var(--gold-subtle);
   --borderDivider: var(--border-divider);
@@ -97,11 +111,19 @@ html[data-theme="light"] {
   --textSecondary: #444444;
   --textMuted: #6b6b6b;
   --icon: #444444;
+  /* Light mode primary (Waterloo gold) */
   --primary: #8b6914;
   --primaryHover: #6d520f;
   --primaryGlow: rgba(139, 105, 20, 0.25);
+  --primaryText: #ffffff;
   --danger: #b91c1c;
   --dangerHover: #991b1b;
+  --success: #059669;
+  --successHover: #047857;
+  --successBg: rgba(5, 150, 105, 0.10);
+  --successBorder: rgba(5, 150, 105, 0.25);
+  --dangerBg: rgba(185, 28, 28, 0.10);
+  --dangerBorder: rgba(185, 28, 28, 0.25);
   --focusRing: rgba(139, 105, 20, 0.45);
   --shadowSm: 0 1px 3px rgba(0, 0, 0, 0.06);
   --shadowMd: 0 4px 12px rgba(0, 0, 0, 0.08);
@@ -114,7 +136,12 @@ html[data-theme="light"] {
   --border-divider: rgba(0, 0, 0, 0.08);
   --surface-elevated: var(--surfaceElevated);
   --gold-subtle: rgba(139, 105, 20, 0.10);
-  --gold-border: rgba(139, 105, 20, 0.35);
+  --gold-border: rgba(139, 105, 20, 0.30);
+  --gold-badge-bg: rgba(139, 105, 20, 0.10);
+  --gold-badge-border: rgba(139, 105, 20, 0.30);
+  --gold-badge-text: #8b6914;
+  --gold-text-on-dark: #D4A017;
+  --gold-text-on-light: #8b6914;
   --primaryBorder: var(--gold-border);
   --primarySubtle: var(--gold-subtle);
 }
@@ -166,7 +193,7 @@ body::before {
   z-index: 0;
 }
 html[data-theme="light"] body::before {
-  opacity: 0.025;
+  opacity: 0.04;
 }
 
 input::placeholder,
@@ -213,4 +240,110 @@ textarea:focus-visible {
 /* Button press — subtle scale */
 button:not(:disabled):active {
   transform: scale(0.98);
+}
+
+/* Pulse glow animation for availability */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 2px var(--primaryGlow);
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--primaryGlow), 0 0 0 6px rgba(255, 213, 74, 0.1);
+  }
+}
+
+/* Shimmer animation for skeleton loaders */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+/* Button System — Primary, Secondary, Destructive */
+.btn-primary {
+  background: var(--primary);
+  color: var(--primaryText);
+  border: 1px solid var(--primary);
+  font-weight: 600;
+  transition: background-color var(--transition-base), box-shadow var(--transition-base), color var(--transition-base);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--primaryHover);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow);
+}
+
+.btn-primary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focusRing);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Dark mode: deep gold with dark text */
+:root:not([data-theme="light"]) .btn-primary {
+  background: var(--primary);
+  color: var(--primaryText);
+}
+
+/* Light mode: Waterloo gold with white text */
+html[data-theme="light"] .btn-primary {
+  background: var(--primary);
+  color: var(--primaryText);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primaryBorder);
+  font-weight: 500;
+  transition: background-color var(--transition-base), border-color var(--transition-base);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--primarySubtle);
+  border-color: var(--primary);
+}
+
+.btn-secondary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focusRing);
+}
+
+.btn-destructive {
+  background: var(--danger);
+  color: white;
+  border: 1px solid var(--danger);
+  font-weight: 600;
+  transition: background-color var(--transition-base);
+}
+
+.btn-destructive:hover:not(:disabled) {
+  background: var(--dangerHover);
+}
+
+.btn-destructive:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(229, 115, 115, 0.5);
+}
+
+/* Light mode button overrides */
+html[data-theme="light"] .btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+html[data-theme="light"] .btn-primary:hover:not(:disabled) {
+  background: var(--primaryHover);
+  color: white;
 }

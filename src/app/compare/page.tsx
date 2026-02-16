@@ -97,7 +97,8 @@ function CompareColumn({
         </div>
         <Link
           href={`/book?roomId=${encodeURIComponent(String(room.id))}`}
-          className="mt-5 block w-full rounded-full bg-[var(--primary)] py-3 text-center text-sm font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
+          className="mt-5 block w-full rounded-full bg-[var(--primary)] py-3 text-center text-sm font-semibold shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
+          style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}
         >
           Book this room
         </Link>
@@ -189,7 +190,8 @@ export default function ComparePage() {
           description={isSingle ? "Add another room from the Rooms page to compare side-by-side." : "Select 2–4 rooms from the Rooms dashboard or booking flow to compare features and capacity."}
           suggestion={isSingle ? "Use the 3-dot menu on a room card and choose \"Add to Compare\", then open the Compare bar below." : "Use \"Add to compare\" on room cards, then click Compare in the bar at the bottom."}
           action={
-            <Link href="/rooms" className="inline-flex rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-black shadow-md transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]">
+            <Link href="/rooms" className="inline-flex rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold shadow-md transition-all duration-200 hover:bg-[var(--primaryHover)] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
+              style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}>
               {isSingle ? "Browse rooms to add" : "Browse rooms"}
             </Link>
           }
@@ -248,9 +250,10 @@ export default function ComparePage() {
             onClick={() => setMobileIndex(i)}
             className={`shrink-0 rounded-full border px-5 py-2.5 text-sm font-medium transition-all duration-200 ${
               mobileIndex === i
-                ? "border-[var(--primary)] bg-[var(--primary)] text-black shadow-lg"
+                ? "border-[var(--primary)] bg-[var(--primary)] shadow-lg"
                 : "border-[var(--border)] text-[var(--textSecondary)] hover:text-[var(--text)] hover:border-[var(--borderStrong)]"
             }`}
+            style={mobileIndex === i ? { color: "var(--primaryText)" } : undefined}
           >
             {room.name}
           </button>

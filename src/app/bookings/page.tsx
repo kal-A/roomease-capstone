@@ -89,7 +89,7 @@ function DayBookingsModal({
                   <button
                     type="button"
                     onClick={() => { onViewDetails(b); onClose(); }}
-                    className="rounded-full border border-[#FFD54A]/50 bg-transparent px-3 py-1.5 text-xs font-medium text-[#FFD54A] transition-all duration-200 hover:bg-[#FFD54A]/10"
+                    className="rounded-full border border-[var(--primary)]/50 bg-transparent px-3 py-1.5 text-xs font-medium text-[var(--primary)] transition-all duration-200 hover:bg-[var(--primary)]/10"
                   >
                     View
                   </button>
@@ -334,7 +334,7 @@ export default function MyBookingsPage() {
                     {dayBookings.slice(0, 2).map((b) => (
                       <span
                         key={b.id}
-                        className="inline-block max-w-full truncate rounded-lg bg-[#FFD54A]/20 px-1.5 py-0.5 text-[10px] text-[#FFD54A]"
+                        className="inline-block max-w-full truncate rounded-lg bg-[var(--primary)]/15 border border-[var(--primary)]/30 px-1.5 py-0.5 text-[10px] text-[var(--primary)] font-medium"
                         title={`${b.roomName} ${formatTimeSlot(b.timeSlot)}`}
                       >
                         {b.roomName} {formatTimeSlot(b.timeSlot)}

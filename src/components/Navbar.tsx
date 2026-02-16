@@ -98,7 +98,7 @@ export function Navbar() {
             className="flex shrink-0 items-center gap-2 transition-opacity hover:opacity-90"
             onClick={(e) => { if (isHome) { e.preventDefault(); handleHomeClick(e); } }}
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--gold)] text-black" aria-hidden>
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--gold)]" style={{ color: "var(--primaryText)" }} aria-hidden>
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
                 <path d="M9 22V12h6v10" />
@@ -124,9 +124,10 @@ export function Navbar() {
           <NavLink href="/analytics" active={isAnalytics}>Analytics</NavLink>
           <Link
             href="/book"
-            className={`shrink-0 rounded-full px-5 py-2 text-sm font-semibold transition-all duration-200 bg-[var(--gold)] text-black hover:bg-[var(--gold-hover)] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] ${
+            className={`shrink-0 rounded-full px-5 py-2 text-sm font-semibold transition-all duration-200 bg-[var(--gold)] hover:bg-[var(--gold-hover)] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] ${
               isBook ? "shadow-md" : ""
             }`}
+            style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}
           >
             Start Booking
           </Link>

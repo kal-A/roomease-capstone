@@ -57,9 +57,9 @@ function useAnalyticsData(bookings: ReturnType<typeof useBookings>["bookings"]) 
       .slice(0, 10);
 
     const capacityData = [
-      { name: "Small (0–50)", value: capacityBuckets.small, fill: "var(--textMuted)" },
-      { name: "Medium (50–150)", value: capacityBuckets.medium, fill: "var(--textSecondary)" },
-      { name: "Large (150+)", value: capacityBuckets.large, fill: GOLD_DIM },
+      { name: "Small (0–50)", value: capacityBuckets.small, fill: "var(--primary)" },
+      { name: "Medium (50–150)", value: capacityBuckets.medium, fill: "var(--primary)" },
+      { name: "Large (150+)", value: capacityBuckets.large, fill: "var(--primary)" },
     ];
 
     const sortedDays = Object.keys(byDay).sort();
@@ -95,7 +95,8 @@ export default function AnalyticsPage() {
           description="Booking analytics will appear once you have at least one booking."
           suggestion="Book a room to see most booked buildings, popular rooms, and trends."
           action={
-            <Link href="/book" className="inline-flex rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-black shadow-md transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]">
+            <Link href="/book" className="inline-flex rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold shadow-md transition-all duration-200 hover:bg-[var(--primaryHover)] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
+              style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}>
               Book a Room
             </Link>
           }
@@ -138,8 +139,10 @@ export default function AnalyticsPage() {
                       border: "1px solid var(--border)",
                       borderRadius: "16px",
                       backdropFilter: "blur(16px)",
+                      color: "var(--text)",
                     }}
-                    labelStyle={{ color: "var(--text)" }}
+                    labelStyle={{ color: "var(--text)", fontWeight: 600 }}
+                    itemStyle={{ color: "var(--text)" }}
                     formatter={(value) => [value ?? 0, "Bookings"]}
                   />
                   <Bar dataKey="count" radius={[0, 4, 4, 0]} animationDuration={600} animationBegin={0}>
@@ -177,7 +180,8 @@ export default function AnalyticsPage() {
                     <span className="text-sm text-[var(--textSecondary)]">{count} booking{count !== 1 ? "s" : ""}</span>
                     <Link
                       href={`/book?roomId=${encodeURIComponent(roomId)}`}
-                      className="rounded-full bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-black transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
+                      className="rounded-full bg-[var(--primary)] px-4 py-2 text-sm font-semibold transition-all duration-200 hover:bg-[var(--primaryHover)] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
+                      style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}
                     >
                       Book this room
                     </Link>
@@ -213,7 +217,10 @@ export default function AnalyticsPage() {
                         backgroundColor: "var(--surfaceElevated)",
                         border: "1px solid var(--border)",
                         borderRadius: "8px",
+                        color: "var(--text)",
                       }}
+                      labelStyle={{ color: "var(--text)", fontWeight: 600 }}
+                      itemStyle={{ color: "var(--text)" }}
                       formatter={(value) => [value ?? 0, "Bookings"]}
                     />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]} animationDuration={600} animationBegin={100}>
@@ -253,7 +260,10 @@ export default function AnalyticsPage() {
                         backgroundColor: "var(--surfaceElevated)",
                         border: "1px solid var(--border)",
                         borderRadius: "8px",
+                        color: "var(--text)",
                       }}
+                      labelStyle={{ color: "var(--text)", fontWeight: 600 }}
+                      itemStyle={{ color: "var(--text)" }}
                       labelFormatter={(v) => `Date: ${v}`}
                       formatter={(value) => [value ?? 0, "Bookings"]}
                     />

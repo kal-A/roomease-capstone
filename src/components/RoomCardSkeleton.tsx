@@ -3,9 +3,11 @@
 export function RoomCardSkeleton() {
   return (
     <div
-      className="relative flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 min-h-[20rem] animate-pulse"
+      className="relative flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 min-h-[20rem] overflow-hidden"
       style={{ borderRadius: "var(--radiusLg)" }}
     >
+      {/* Shimmer overlay */}
+      <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/5 to-transparent" />
       <div className="absolute top-4 right-4 h-9 w-9 rounded-full bg-[var(--border)]/60" />
       <div className="pr-12">
         <div className="h-5 w-3/4 rounded-lg bg-[var(--border)]/60" />

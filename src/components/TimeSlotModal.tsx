@@ -65,8 +65,9 @@ export function TimeSlotModal({
                   type="button"
                   onClick={() => { onSelect(slot.value); onClose(); }}
                   className={`min-w-0 rounded-lg px-2 py-2 text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] ${
-                    isSelected ? "border-2 border-[var(--primary)] bg-[var(--primary)] text-black" : "border-[var(--border)] bg-[var(--surface)] text-[var(--textSecondary)] hover:border-[var(--gold-border)] hover:text-[var(--text)]"
+                    isSelected ? "border-2 border-[var(--primary)] bg-[var(--primary)]" : "border-[var(--border)] bg-[var(--surface)] text-[var(--textSecondary)] hover:border-[var(--gold-border)] hover:text-[var(--text)]"
                   }`}
+                  style={isSelected ? { color: "var(--primaryText)" } : undefined}
                 >
                   {slot.label}
                 </button>

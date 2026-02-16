@@ -47,9 +47,10 @@ export function CompareBar() {
                 title={!canCompare ? "Add at least 2 rooms to compare" : undefined}
                 className={`rounded-full px-6 py-2.5 text-sm font-semibold shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] ${
                   canCompare
-                    ? "bg-[var(--primary)] text-black hover:bg-[var(--primaryHover)]"
+                    ? "bg-[var(--primary)] hover:bg-[var(--primaryHover)] hover:shadow-lg"
                     : "bg-[var(--border)]/50 text-[var(--textMuted)] cursor-not-allowed pointer-events-none"
                 }`}
+                style={canCompare ? { color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" } : undefined}
                 onClick={(e) => !canCompare && e.preventDefault()}
               >
                 Compare

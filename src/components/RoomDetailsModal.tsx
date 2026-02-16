@@ -184,7 +184,8 @@ export function RoomDetailsModal({
           {showStartBooking ? (
             <Link
               href={`/book?roomId=${encodeURIComponent(String(room.id))}`}
-              className="flex-1 rounded-full bg-[var(--primary)] py-3 text-center font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
+              className="flex-1 rounded-full bg-[var(--primary)] py-3 text-center font-semibold shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
+              style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}
             >
               Start booking with this room
             </Link>

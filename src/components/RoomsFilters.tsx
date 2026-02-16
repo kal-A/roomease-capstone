@@ -256,10 +256,9 @@ function FilterCheckbox({
 }) {
   return (
     <motion.label
-      className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-[#1A1A1A]"
-      whileHover={{ backgroundColor: "rgba(255,255,255,0.04)" }}
+      className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-[var(--border)]/30"
     >
-      <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[#2A2A2A] bg-[#111111]">
+      <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[var(--border)] bg-[var(--surface)]">
         <input
           type="checkbox"
           checked={checked}
@@ -268,10 +267,10 @@ function FilterCheckbox({
           aria-label={label}
         />
         <motion.span
-          className="pointer-events-none absolute inset-0 rounded border bg-[#111111]"
+          className="pointer-events-none absolute inset-0 rounded border bg-[var(--surface)]"
           animate={{
-            borderColor: checked ? "#FFD100" : "#2A2A2A",
-            backgroundColor: checked ? "rgba(255, 209, 0, 0.15)" : "#111111",
+            borderColor: checked ? "var(--primary)" : "var(--border)",
+            backgroundColor: checked ? "var(--primarySubtle)" : "var(--surface)",
           }}
           transition={{ duration: 0.2 }}
         />
@@ -280,7 +279,7 @@ function FilterCheckbox({
             <motion.svg
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#FFD100"
+              stroke="var(--primary)"
               strokeWidth={2.5}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -295,7 +294,7 @@ function FilterCheckbox({
           )}
         </AnimatePresence>
       </span>
-      <span className="text-sm text-gray-300">{label}</span>
+      <span className="text-sm text-[var(--textSecondary)]">{label}</span>
     </motion.label>
   );
 }
@@ -312,17 +311,17 @@ function CollapsibleSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-[#2A2A2A] bg-[#111111] overflow-hidden">
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-white transition hover:bg-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:ring-inset"
+        className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-[var(--text)] transition hover:bg-[var(--border)]/30 focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] focus:ring-inset"
       >
         {title}
         <motion.span
           animate={{ rotate: open ? 180 : 0 }}
           transition={{ duration: 0.2 }}
-          className="text-gray-500"
+          className="text-[var(--textMuted)]"
         >
           ▼
         </motion.span>
@@ -336,7 +335,7 @@ function CollapsibleSection({
             transition={{ duration: 0.25, ease: "easeInOut" }}
             className="overflow-hidden"
           >
-            <div className="border-t border-[#2A2A2A] px-2 pb-2 pt-1">
+            <div className="border-t border-[var(--border)] px-2 pb-2 pt-1">
               {children}
             </div>
           </motion.div>
@@ -381,14 +380,14 @@ export function RoomsFilters({
     <>
       <div className="space-y-4">
         {/* Building selector */}
-        <div className="rounded-xl border border-[#2A2A2A] bg-[#111111] p-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">
             Building
           </p>
           <button
             type="button"
             onClick={() => setBuildingModalOpen(true)}
-            className="w-full rounded-lg border border-[#2A2A2A] bg-[#1A1A1A] px-4 py-2.5 text-left text-sm font-medium text-gray-200 transition hover:border-[#FFD100]/60 hover:text-white focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:ring-offset-2 focus:ring-offset-black"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surfaceElevated)] px-4 py-2.5 text-left text-sm font-medium text-[var(--text)] transition hover:border-[var(--primary)]/60 hover:text-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] focus:ring-offset-2 focus:ring-offset-[var(--surface)]"
           >
             {buildingLabel}
           </button>

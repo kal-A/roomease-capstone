@@ -301,10 +301,10 @@ function BookPageContent() {
               {lockedRoom ? "Book This Room" : "Event Information"}
             </h2>
             {lockedRoom && (
-              <div className="mb-8 rounded-2xl border border-[#FFD54A]/40 bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-5">
+              <div className="mb-8 rounded-2xl border border-[var(--primary)]/40 bg-[var(--surface)] backdrop-blur-md p-5" style={{ borderRadius: "var(--radiusLg)" }}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[#FFD54A]">Selected Room</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--primary)]">Selected Room</p>
                     <p className="mt-1 text-lg font-semibold tracking-tight text-[var(--text)]">{lockedRoom.name}</p>
                     <p className="mt-1 text-sm text-[var(--textSecondary)]">Capacity {lockedRoom.capacity}</p>
                   </div>
@@ -318,12 +318,20 @@ function BookPageContent() {
               </div>
             )}
             {directBookingError && (
-              <div
-                className="mb-8 rounded-2xl border-2 border-[#FFD54A]/60 bg-[#FFD54A]/10 p-5"
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6 rounded-xl border border-[var(--danger)]/50 bg-[var(--dangerBg)] p-4"
+                style={{ borderRadius: "var(--radiusLg)" }}
                 role="alert"
               >
-                <p className="text-sm font-semibold text-[#FFD54A]">{directBookingError}</p>
-              </div>
+                <div className="flex items-start gap-2.5">
+                  <svg className="h-5 w-5 shrink-0 text-[var(--danger)] mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <p className="text-sm font-semibold text-[var(--danger)] leading-relaxed">{directBookingError}</p>
+                </div>
+              </motion.div>
             )}
             <EventForm
               data={formData}
@@ -331,45 +339,9 @@ function BookPageContent() {
               onSubmit={lockedRoom ? handleDirectBookingSubmit : handleFormSubmit}
               buildings={buildingsList}
               directBooking={!!lockedRoom}
+              roomId={lockedRoom?.id}
+              existingBookings={existingBookings}
             />
-            {lockedRoom && formData.preferredDate && formData.timeSlot && (() => {
-              const date = formData.preferredDate ?? "";
-              const startM = timeToMinutes(formData.timeSlot ?? "");
-              const durationM = formData.durationMinutes ?? 60;
-              const roomBookings = existingBookings.filter((b) => b.roomId === String(lockedRoom.id) && b.preferredDate === date);
-              const overlap = roomBookings.some((b) => {
-                const existingStart = timeToMinutes(b.timeSlot);
-                const existingDuration = b.durationMinutes ?? 60;
-                return timeRangesOverlap(existingStart, existingDuration, startM, durationM);
-              });
-              const nextAvailable: string[] = [];
-              if (overlap) {
-                for (const slot of TIME_SLOTS_30MIN) {
-                  const slotStart = timeToMinutes(slot.value);
-                  const conflict = roomBookings.some((b) => {
-                    const existingStart = timeToMinutes(b.timeSlot);
-                    const existingDuration = b.durationMinutes ?? 60;
-                    return timeRangesOverlap(existingStart, existingDuration, slotStart, durationM);
-                  });
-                  if (!conflict && nextAvailable.length < 3) nextAvailable.push(slot.label);
-                }
-              }
-              return (
-                <div className="mt-4 rounded-xl border border-[var(--borderDivider)] bg-[var(--surface)] p-4">
-                  <p className="text-sm font-medium text-[var(--textSecondary)] mb-1">Availability for this room</p>
-                  {overlap ? (
-                    <div>
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/15 px-3 py-1.5 text-sm font-medium text-red-600 border border-red-500/30">Not available for this date & time</span>
-                      {nextAvailable.length > 0 && (
-                        <p className="mt-2 text-xs text-[var(--textMuted)]">Next available: {nextAvailable.slice(0, 3).join(", ")}</p>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1.5 text-sm font-medium text-emerald-600 border border-emerald-500/30">Available</span>
-                  )}
-                </div>
-              );
-            })()}
           </motion.div>
         )}
 
@@ -454,7 +426,7 @@ function BookPageContent() {
                 </div>
                 <div className="mt-4 flex gap-3">
                   <button type="button" onClick={() => { setShowConfirmModal(false); setPendingBooking(null); }} className="flex-1 rounded-xl border border-[var(--border)] py-2.5 text-sm font-medium text-[var(--textSecondary)] hover:bg-[var(--borderDivider)]">Cancel</button>
-                  <button type="button" onClick={handleConfirmBooking} className="flex-1 rounded-xl bg-[var(--primary)] py-2.5 text-sm font-semibold text-black hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]">Confirm</button>
+                  <button type="button" onClick={handleConfirmBooking} className="flex-1 rounded-xl bg-[var(--primary)] py-2.5 text-sm font-semibold hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] shadow-sm hover:shadow-md" style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}>Confirm</button>
                 </div>
               </div>
             </div>
