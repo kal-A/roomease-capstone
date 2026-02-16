@@ -51,17 +51,17 @@ function DayBookingsModal({
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
       <div
-        className="relative z-10 w-full max-w-md max-h-[80vh] flex flex-col rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.85)] backdrop-blur-xl shadow-2xl"
+        className="relative z-10 w-full max-w-md max-h-[80vh] flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surfaceElevated)] shadow-[var(--shadowXl)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.06)] p-6">
-          <h2 id="day-bookings-title" className="text-lg font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">
+        <div className="flex items-center justify-between border-b border-[var(--border)] p-6">
+          <h2 id="day-bookings-title" className="text-lg font-semibold tracking-tight text-[var(--text)]">
             Bookings on {dateLabel}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-[rgba(255,255,255,0.65)] transition-all duration-200 hover:bg-[rgba(255,255,255,0.06)] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
+            className="rounded-full p-2 text-[var(--textSecondary)] transition-all duration-200 hover:bg-[var(--border)]/50 hover:text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
             aria-label="Close"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -71,16 +71,16 @@ function DayBookingsModal({
         </div>
         <div className="flex-1 overflow-y-auto p-6 space-y-3">
           {bookings.length === 0 ? (
-            <p className="text-[rgba(255,255,255,0.65)] text-sm">No bookings on this day.</p>
+            <p className="text-[var(--textSecondary)] text-sm">No bookings on this day.</p>
           ) : (
             bookings.map((b) => (
               <div
                 key={b.id}
-                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] p-4 flex items-center justify-between gap-2 transition-all duration-200 hover:border-[rgba(255,255,255,0.12)]"
+                className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 flex items-center justify-between gap-2 transition-all duration-200 hover:border-[var(--borderStrong)]"
               >
                 <div className="min-w-0">
-                  <p className="font-medium text-[rgba(255,255,255,0.92)] truncate">{b.eventName}</p>
-                  <p className="text-sm text-[rgba(255,255,255,0.65)]">
+                  <p className="font-medium text-[var(--text)] truncate">{b.eventName}</p>
+                  <p className="text-sm text-[var(--textSecondary)]">
                     {b.roomName} • {formatBookingTime(b)}
                   </p>
                 </div>
@@ -95,7 +95,7 @@ function DayBookingsModal({
                   <button
                     type="button"
                     onClick={() => { onEdit(b); onClose(); }}
-                    className="rounded-full border border-[rgba(255,255,255,0.08)] bg-transparent px-3 py-1.5 text-xs font-medium text-[rgba(255,255,255,0.65)] transition-all duration-200 hover:text-white hover:border-[rgba(255,255,255,0.12)]"
+                    className="rounded-full border border-[var(--border)] bg-transparent px-3 py-1.5 text-xs font-medium text-[var(--textSecondary)] transition-all duration-200 hover:text-[var(--text)] hover:border-[var(--borderStrong)]"
                   >
                     Edit
                   </button>
@@ -176,7 +176,7 @@ function BookingDetailsModal({
           <button type="button" onClick={onClose} className="rounded-full border border-[var(--border)] bg-transparent px-5 py-2.5 font-medium text-[var(--textSecondary)] hover:bg-[var(--border)]/50 hover:text-[var(--text)]">Close</button>
           {onEdit && <button type="button" onClick={onEdit} className="rounded-full border border-[var(--border)] bg-transparent px-5 py-2.5 font-semibold text-[var(--text)] hover:bg-[var(--border)]/50">Edit</button>}
           {onDelete && (
-            <button type="button" onClick={onDelete} className="rounded-full border border-[var(--danger)] bg-[var(--danger)] px-5 py-2.5 font-medium text-white hover:bg-[var(--dangerHover)] inline-flex items-center gap-2">
+            <button type="button" onClick={onDelete} className="rounded-full border border-[var(--danger)] bg-transparent px-5 py-2.5 font-semibold text-[var(--danger)] hover:bg-[var(--danger)]/10 inline-flex items-center gap-2">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
               Delete
             </button>
@@ -238,18 +238,18 @@ export default function MyBookingsPage() {
     <div className="mx-auto max-w-[1200px] px-6 py-12 sm:px-8 sm:py-16 lg:px-10">
       <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-4xl font-bold tracking-tight text-[rgba(255,255,255,0.92)] sm:text-5xl" style={{ letterSpacing: "-0.02em" }}>My Bookings</h1>
-          <p className="mt-2 text-lg text-[rgba(255,255,255,0.65)]">Your scheduled room reservations.</p>
+          <h1 className="text-4xl font-bold tracking-tight text-[var(--text)] sm:text-5xl" style={{ letterSpacing: "-0.02em" }}>My Bookings</h1>
+          <p className="mt-2 text-lg text-[var(--textSecondary)]">Your scheduled room reservations.</p>
         </div>
         {hasBookings && (
-          <div className="flex rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-1">
+          <div className="flex rounded-full border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-1">
             <button
               type="button"
               onClick={() => setViewMode("list")}
               className={`rounded-full px-5 py-2 text-sm font-medium transition-all duration-200 ${
                 viewMode === "list"
-                  ? "bg-[#FFD54A] text-black shadow-lg"
-                  : "text-[rgba(255,255,255,0.65)] hover:text-white"
+                  ? "bg-[var(--primary)] text-black shadow-lg"
+                  : "text-[var(--textSecondary)] hover:text-[var(--text)]"
               }`}
             >
               List
@@ -259,8 +259,8 @@ export default function MyBookingsPage() {
               onClick={() => setViewMode("calendar")}
               className={`rounded-full px-5 py-2 text-sm font-medium transition-all duration-200 ${
                 viewMode === "calendar"
-                  ? "bg-[#FFD54A] text-black shadow-lg"
-                  : "text-[rgba(255,255,255,0.65)] hover:text-white"
+                  ? "bg-[var(--primary)] text-black shadow-lg"
+                  : "text-[var(--textSecondary)] hover:text-[var(--text)]"
               }`}
             >
               Calendar
@@ -270,39 +270,39 @@ export default function MyBookingsPage() {
       </div>
 
       {!hasBookings ? (
-        <div className="rounded-2xl border-2 border-dashed border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.50)] backdrop-blur-md py-20 text-center">
-          <p className="text-lg font-medium text-[rgba(255,255,255,0.65)]">No bookings yet</p>
+        <div className="rounded-2xl border-2 border-dashed border-[var(--border)] bg-[var(--surface)] backdrop-blur-md py-20 text-center">
+          <p className="text-lg font-medium text-[var(--textSecondary)]">No bookings yet</p>
           <Link
             href="/book"
-            className="mt-6 inline-flex rounded-full bg-[#FFD54A] px-6 py-3 font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[#F6C445] hover:shadow-[#FFD54A]/25 focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
+            className="mt-6 inline-flex rounded-full bg-[var(--primary)] px-6 py-3 font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
           >
             Book a Room
           </Link>
         </div>
       ) : viewMode === "calendar" ? (
-        <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-6 sm:p-8 shadow-lg">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-6 sm:p-8 shadow-lg">
           <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-xl font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">
+            <h2 className="text-xl font-semibold tracking-tight text-[var(--text)]">
               {MONTH_NAMES[calendarMonth - 1]} {calendarYear}
             </h2>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={prevMonth}
-                className="rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] px-4 py-2 text-sm font-medium text-[#FFD54A] transition-all duration-200 hover:border-[#FFD54A]/50 hover:bg-[rgba(17,17,19,0.85)]"
+                className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--primary)] transition-all duration-200 hover:border-[var(--primary)]/50 hover:bg-[var(--surfaceElevated)]"
               >
                 Previous
               </button>
               <button
                 type="button"
                 onClick={nextMonth}
-                className="rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] px-4 py-2 text-sm font-medium text-[#FFD54A] transition-all duration-200 hover:border-[#FFD54A]/50 hover:bg-[rgba(17,17,19,0.85)]"
+                className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--primary)] transition-all duration-200 hover:border-[var(--primary)]/50 hover:bg-[var(--surfaceElevated)]"
               >
                 Next
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-[rgba(255,255,255,0.65)]">
+          <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-[var(--textSecondary)]">
             {WEEKDAYS.map((w) => (
               <div key={w} className="py-2">{w}</div>
             ))}
@@ -310,7 +310,7 @@ export default function MyBookingsPage() {
           <div className="grid grid-cols-7 gap-1">
             {monthGrid.map((day, i) => {
               if (day === null) {
-                return <div key={`empty-${i}`} className="min-h-[80px] rounded-xl bg-[rgba(17,17,19,0.50)]" />;
+                return <div key={`empty-${i}`} className="min-h-[80px] rounded-xl bg-[var(--surface)]" />;
               }
               const dStr = dateStr(calendarYear, calendarMonth, day);
               const dayBookings = bookingsByDate[dStr] ?? [];
@@ -320,9 +320,9 @@ export default function MyBookingsPage() {
                   key={dStr}
                   type="button"
                   onClick={() => setDayModal({ dateStr: dStr, dateLabel: label })}
-                  className="min-h-[80px] rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] p-2 text-left transition-all duration-200 hover:border-[#FFD54A]/40 hover:bg-[rgba(17,17,19,0.85)] focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
+                  className="min-h-[80px] rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 text-left transition-all duration-200 hover:border-[var(--primary)]/40 hover:bg-[var(--surfaceElevated)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
                 >
-                  <span className="text-sm font-medium text-[rgba(255,255,255,0.92)]">{day}</span>
+                  <span className="text-sm font-medium text-[var(--text)]">{day}</span>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {dayBookings.slice(0, 2).map((b) => (
                       <span
@@ -334,7 +334,7 @@ export default function MyBookingsPage() {
                       </span>
                     ))}
                     {dayBookings.length > 2 && (
-                      <span className="text-[10px] text-[rgba(255,255,255,0.48)]">+{dayBookings.length - 2}</span>
+                      <span className="text-[10px] text-[var(--textMuted)]">+{dayBookings.length - 2}</span>
                     )}
                   </div>
                 </button>
@@ -347,36 +347,36 @@ export default function MyBookingsPage() {
           {list.map((b) => (
             <article
               key={b.id}
-              className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-6 shadow-lg transition-all duration-200 hover:border-[rgba(255,255,255,0.12)] hover:shadow-xl hover:-translate-y-1"
+              className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-6 shadow-lg transition-all duration-200 hover:border-[var(--borderStrong)] hover:shadow-xl hover:-translate-y-1"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h3 className="truncate text-lg font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">{b.eventName}</h3>
-                  <p className="mt-1 text-sm text-[rgba(255,255,255,0.65)]">{b.organizerName}</p>
+                  <h3 className="truncate text-lg font-semibold tracking-tight text-[var(--text)]">{b.eventName}</h3>
+                  <p className="mt-1 text-sm text-[var(--textSecondary)]">{b.organizerName}</p>
                 </div>
-                <span className="inline-flex rounded-full border border-[#FFD54A]/50 bg-[#FFD54A]/10 px-3 py-1 text-xs font-medium text-[#FFD54A]">
+                <span className="inline-flex rounded-full border border-[var(--primary)]/50 bg-[var(--primary)]/10 px-3 py-1 text-xs font-medium text-[var(--primary)]">
                   Confirmed
                 </span>
               </div>
 
               <div className="mt-5 space-y-2 text-sm">
-                <p className="text-[rgba(255,255,255,0.65)]">
-                  <span className="text-[rgba(255,255,255,0.48)]">Date:</span> {b.preferredDate}
+                <p className="text-[var(--textSecondary)]">
+                  <span className="text-[var(--textMuted)]">Date:</span> {b.preferredDate}
                 </p>
-                <p className="text-[rgba(255,255,255,0.65)]">
-                  <span className="text-[rgba(255,255,255,0.48)]">Time:</span> {formatBookingTime(b)}
+                <p className="text-[var(--textSecondary)]">
+                  <span className="text-[var(--textMuted)]">Time:</span> {formatBookingTime(b)}
                 </p>
-                <p className="text-[rgba(255,255,255,0.65)]">
-                  <span className="text-[rgba(255,255,255,0.48)]">Room:</span> {b.roomName}
+                <p className="text-[var(--textSecondary)]">
+                  <span className="text-[var(--textMuted)]">Room:</span> {b.roomName}
                 </p>
-                <p className="text-[rgba(255,255,255,0.48)] font-mono text-xs">Confirmation #{b.confirmationNumber}</p>
+                <p className="text-[var(--textMuted)] font-mono text-xs">Confirmation #{b.confirmationNumber}</p>
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
                 {b.avBadges.map((badge) => (
                   <span
                     key={badge}
-                    className="inline-flex rounded-full border border-[#FFD54A]/50 bg-[#FFD54A]/10 px-2.5 py-1 text-xs font-medium text-[#FFD54A]"
+                    className="inline-flex rounded-full border border-[var(--primary)]/50 bg-[var(--primary)]/10 px-2.5 py-1 text-xs font-medium text-[var(--primary)]"
                   >
                     {badge}
                   </span>
@@ -385,32 +385,32 @@ export default function MyBookingsPage() {
                   b.furnitureLabels.split(" • ").map((label) => (
                     <span
                       key={label}
-                      className="inline-flex rounded-full border border-[#FFD54A]/50 bg-[#FFD54A]/10 px-2.5 py-1 text-xs font-medium text-[#FFD54A]"
+                      className="inline-flex rounded-full border border-[var(--primary)]/50 bg-[var(--primary)]/10 px-2.5 py-1 text-xs font-medium text-[var(--primary)]"
                     >
                       {label}
                     </span>
                   ))}
               </div>
 
-              <div className="mt-5 flex flex-wrap gap-2 pt-5 border-t border-[rgba(255,255,255,0.06)]">
+              <div className="mt-5 flex flex-wrap gap-2 pt-5 border-t border-[var(--border)]">
                 <button
                   type="button"
                   onClick={() => setDetails(b)}
-                  className="rounded-full border border-[rgba(255,255,255,0.08)] bg-transparent px-4 py-2.5 text-sm font-semibold text-[rgba(255,255,255,0.92)] transition-all duration-200 hover:border-[rgba(255,255,255,0.12)] hover:bg-[rgba(255,255,255,0.06)] focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
+                  className="rounded-full border border-[var(--border)] bg-transparent px-4 py-2.5 text-sm font-semibold text-[var(--text)] transition-all duration-200 hover:border-[var(--borderStrong)] hover:bg-[var(--border)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
                 >
                   View details
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditing(b)}
-                  className="rounded-full border border-[rgba(255,255,255,0.08)] bg-transparent px-4 py-2.5 text-sm font-semibold text-[rgba(255,255,255,0.92)] transition-all duration-200 hover:border-[rgba(255,255,255,0.12)] hover:bg-[rgba(255,255,255,0.06)] focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
+                  className="rounded-full border border-[var(--border)] bg-transparent px-4 py-2.5 text-sm font-semibold text-[var(--text)] transition-all duration-200 hover:border-[var(--borderStrong)] hover:bg-[var(--border)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
                 >
                   Edit
                 </button>
                 <button
                   type="button"
                   onClick={() => setDeleting(b)}
-                  className="rounded-full border border-[var(--danger)] bg-[var(--danger)] px-4 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-[var(--dangerHover)] focus:outline-none focus:ring-2 focus:ring-[var(--danger)]/50 inline-flex items-center gap-2"
+                  className="rounded-full border border-[var(--danger)] bg-transparent px-4 py-2.5 text-sm font-semibold text-[var(--danger)] transition-all duration-200 hover:border-[var(--dangerHover)] hover:bg-[var(--danger)]/10 focus:outline-none focus:ring-2 focus:ring-[var(--danger)]/50 inline-flex items-center gap-2"
                 >
                   <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

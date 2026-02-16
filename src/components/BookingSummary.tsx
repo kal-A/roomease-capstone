@@ -81,60 +81,60 @@ export function BookingSummary({
   }
 
   return (
-    <div className="rounded-xl border border-[#2A2A2A] bg-[#111111] p-8">
-      <p className="mb-4 text-sm font-medium uppercase tracking-wide text-[#FFD100]">
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-8">
+      <p className="mb-4 text-sm font-medium uppercase tracking-wide text-[var(--primary)]">
         Confirmation #{confirmationNumber}
       </p>
 
       <div className="grid gap-8 sm:grid-cols-2">
         <div>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--textMuted)]">
             Event Details
           </h3>
-          <ul className="space-y-2 text-white">
+          <ul className="space-y-2 text-[var(--text)]">
             <li>
-              <span className="font-medium text-gray-400">Event:</span> {formData.eventName}
+              <span className="font-medium text-[var(--textSecondary)]">Event:</span> {formData.eventName}
             </li>
             <li>
-              <span className="font-medium text-gray-400">Organizer:</span> {formData.organizerName}
+              <span className="font-medium text-[var(--textSecondary)]">Organizer:</span> {formData.organizerName}
             </li>
             <li>
-              <span className="font-medium text-gray-400">Date:</span> {formData.preferredDate}
+              <span className="font-medium text-[var(--textSecondary)]">Date:</span> {formData.preferredDate}
             </li>
             <li>
-              <span className="font-medium text-gray-400">Time:</span> {timeLabel}
+              <span className="font-medium text-[var(--textSecondary)]">Time:</span> {timeLabel}
             </li>
             <li>
-              <span className="font-medium text-gray-400">Duration:</span> {durationLabel}
+              <span className="font-medium text-[var(--textSecondary)]">Duration:</span> {durationLabel}
             </li>
             <li>
-              <span className="font-medium text-gray-400">Group size:</span> {formData.groupSize}
+              <span className="font-medium text-[var(--textSecondary)]">Group size:</span> {formData.groupSize}
             </li>
           </ul>
         </div>
         <div>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--textMuted)]">
             Room Details
           </h3>
-          <ul className="space-y-2 text-white">
+          <ul className="space-y-2 text-[var(--text)]">
             <li>
-              <span className="font-medium text-gray-400">Room:</span> {room.name}
+              <span className="font-medium text-[var(--textSecondary)]">Room:</span> {room.name}
             </li>
             <li>
-              <span className="font-medium text-gray-400">Building:</span> {buildingLabel}
+              <span className="font-medium text-[var(--textSecondary)]">Building:</span> {buildingLabel}
             </li>
             <li>
-              <span className="font-medium text-gray-400">Capacity:</span> {room.capacity}
+              <span className="font-medium text-[var(--textSecondary)]">Capacity:</span> {room.capacity}
             </li>
           </ul>
           <div className="mt-3 space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">AV Capabilities</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">AV Capabilities</p>
             <div className="flex flex-wrap gap-2">
               {avBadges.map((b) => (
                 <FeatureBadge key={b} animated={false}>{b}</FeatureBadge>
               ))}
             </div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Furniture Layout</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Furniture Layout</p>
             <div className="flex flex-wrap gap-2">
               {furnitureLabels.map((label) => (
                 <FeatureBadge key={label} animated={false}>{label}</FeatureBadge>

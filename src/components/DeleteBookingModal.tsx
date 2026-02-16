@@ -51,7 +51,7 @@ export function DeleteBookingModal({
           <button
             type="button"
             onClick={() => { onConfirm(); onClose(); }}
-            className="flex-1 rounded-xl bg-[var(--danger)] py-2.5 text-sm font-semibold text-white hover:bg-[var(--dangerHover)] focus:outline-none focus:ring-2 focus:ring-[var(--danger)]/50"
+            className="flex-1 rounded-xl border-2 border-[var(--danger)] bg-transparent py-2.5 text-sm font-semibold text-[var(--danger)] hover:bg-[var(--danger)]/10 focus:outline-none focus:ring-2 focus:ring-[var(--danger)]/50"
           >
             Delete
           </button>

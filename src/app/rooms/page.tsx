@@ -42,10 +42,10 @@ export default function RoomsDashboardPage() {
       <div className="mb-8 space-y-6">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight text-[rgba(255,255,255,0.92)] sm:text-5xl" style={{ letterSpacing: "-0.02em" }}>
+            <h1 className="text-4xl font-bold tracking-tight text-[var(--text)] sm:text-5xl" style={{ letterSpacing: "-0.02em" }}>
               Bookable Rooms
             </h1>
-            <p className="mt-2 text-lg text-[rgba(255,255,255,0.65)]">
+            <p className="mt-2 text-lg text-[var(--textSecondary)]">
               Browse capacity and features across campus.
             </p>
           </div>
@@ -56,18 +56,18 @@ export default function RoomsDashboardPage() {
                 value={filters.state.search}
                 onChange={(e) => filters.setSearch(e.target.value)}
                 placeholder="Search by room or building..."
-                className="w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md px-5 py-3 text-[rgba(255,255,255,0.92)] placeholder-[rgba(255,255,255,0.48)] transition-all duration-200 focus:border-[#FFD54A]/50 focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30 sm:w-auto"
+                className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md px-5 py-3 text-[var(--text)] placeholder-[var(--textMuted)] transition-all duration-200 focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] sm:w-auto"
                 style={{ minWidth: "28ch", maxWidth: "40ch" }}
                 aria-label="Search rooms"
               />
             </div>
             <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-sm text-[rgba(255,255,255,0.65)]">
+              <label className="flex items-center gap-2 text-sm text-[var(--textSecondary)]">
                 <span>Sort</span>
                 <select
                   value={filters.state.sort}
                   onChange={(e) => filters.setSort(e.target.value as any)}
-                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md px-4 py-2.5 text-sm text-[rgba(255,255,255,0.92)] transition-all duration-200 focus:border-[#FFD54A]/50 focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
+                  className="rounded-xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md px-4 py-2.5 text-sm text-[var(--text)] transition-all duration-200 focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
                 >
                   <option value="recommended">Recommended</option>
                   <option value="capacity-low">Capacity: Low → High</option>
@@ -78,7 +78,7 @@ export default function RoomsDashboardPage() {
               <button
                 type="button"
                 onClick={() => setFiltersOpen(true)}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md px-5 py-2.5 text-sm font-medium text-[rgba(255,255,255,0.92)] transition-all duration-200 hover:border-[rgba(255,255,255,0.12)] hover:bg-[rgba(17,17,19,0.85)] focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md px-5 py-2.5 text-sm font-medium text-[var(--text)] transition-all duration-200 hover:border-[var(--borderStrong)] hover:bg-[var(--surfaceElevated)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
               >
                 <span>Filters</span>
                 {filters.hasActiveFilters && (
@@ -88,7 +88,7 @@ export default function RoomsDashboardPage() {
               <button
                 type="button"
                 onClick={filters.resetFilters}
-                className={`rounded-full border border-[rgba(255,255,255,0.08)] bg-transparent px-5 py-2.5 text-sm font-medium text-[rgba(255,255,255,0.65)] transition-all duration-200 hover:border-[rgba(255,255,255,0.12)] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30 ${
+                className={`rounded-full border border-[var(--border)] bg-transparent px-5 py-2.5 text-sm font-medium text-[var(--textSecondary)] transition-all duration-200 hover:border-[var(--borderStrong)] hover:text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] ${
                   filters.hasActiveFilters ? "" : "opacity-0 pointer-events-none"
                 }`}
               >
@@ -101,7 +101,7 @@ export default function RoomsDashboardPage() {
         {/* Active filter chips */}
         {filters.activeFilterPills.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-[rgba(255,255,255,0.65)]">Active:</span>
+            <span className="text-sm text-[var(--textSecondary)]">Active:</span>
             {filters.activeFilterPills.map((pill) => (
               <button
                 key={pill.key}
@@ -119,13 +119,13 @@ export default function RoomsDashboardPage() {
         )}
       </div>
 
-      <p className="mb-6 text-sm text-[rgba(255,255,255,0.65)]">
+      <p className="mb-6 text-sm text-[var(--textSecondary)]">
         Showing {finalRooms.length} of {ROOMS.length} rooms
       </p>
 
       {finalRooms.length === 0 ? (
-        <div className="rounded-2xl border-2 border-dashed border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.50)] backdrop-blur-md py-20 text-center">
-          <p className="text-lg font-medium text-[rgba(255,255,255,0.65)]">No rooms match your filters.</p>
+        <div className="rounded-2xl border-2 border-dashed border-[var(--border)] bg-[var(--surface)] backdrop-blur-md py-20 text-center">
+          <p className="text-lg font-medium text-[var(--textSecondary)]">No rooms match your filters.</p>
           <button
             type="button"
             onClick={filters.resetFilters}
@@ -173,7 +173,7 @@ export default function RoomsDashboardPage() {
             />
             <motion.aside
               className="fixed inset-0 left-[auto] right-0 z-50 w-full max-w-md border-l border-[var(--border)] bg-[var(--surfaceElevated)] shadow-[var(--shadowXl)] overflow-y-auto"
-              style={{ paddingTop: "max(env(safe-area-inset-top), 3.5rem)", paddingBottom: "2rem", paddingLeft: "2rem", paddingRight: "2rem" }}
+              style={{ paddingTop: "max(env(safe-area-inset-top), 5.5rem)", paddingBottom: "2rem", paddingLeft: "2rem", paddingRight: "2rem" }}
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
@@ -184,15 +184,15 @@ export default function RoomsDashboardPage() {
             >
               <div className="mb-6 flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">Filters</h2>
-                  <p className="mt-1 text-sm text-[var(--foreground-secondary)]">
+                  <h2 className="text-xl font-semibold tracking-tight text-[var(--text)]">Filters</h2>
+                  <p className="mt-1 text-sm text-[var(--textSecondary)]">
                     Refine by capacity, AV, furniture, and building.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setFiltersOpen(false)}
-                  className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--foreground-secondary)] transition-all duration-200 hover:border-[var(--border-hover)] hover:text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
+                  className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--textSecondary)] transition-all duration-200 hover:border-[var(--borderStrong)] hover:text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
                 >
                   Close
                 </button>

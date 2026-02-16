@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 
@@ -50,9 +51,9 @@ export function DatePickerModal({
 
   if (!isOpen) return null;
 
-  return (
+  const modal = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-hidden"
       role="dialog"
       aria-modal="true"
       aria-labelledby="date-picker-title"
@@ -87,4 +88,6 @@ export function DatePickerModal({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modal, document.body) : modal;
 }

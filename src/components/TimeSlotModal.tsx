@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { TIME_SLOTS_30MIN } from "@/types/booking";
 
 interface TimeSlotModalProps {
@@ -35,9 +36,9 @@ export function TimeSlotModal({
 
   if (!isOpen) return null;
 
-  return (
+  const modal = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-hidden"
       role="dialog"
       aria-modal="true"
       aria-labelledby="time-slot-modal-title"
@@ -81,4 +82,6 @@ export function TimeSlotModal({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modal, document.body) : modal;
 }

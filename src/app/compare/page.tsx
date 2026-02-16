@@ -42,18 +42,18 @@ function MiniAvailability({ room, date }: { room: Room; date: string }) {
 
   if (dayBookings.length === 0) {
     return (
-      <p className="text-xs text-gray-500">No bookings on this date.</p>
+      <p className="text-xs text-[var(--textMuted)]">No bookings on this date.</p>
     );
   }
     return (
-      <div className="relative h-8 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)]">
+      <div className="relative h-8 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)]">
         {dayBookings.map((b) => {
           const left = ((timeToMinutes(b.timeSlot) - start) / total) * 100;
           const w = ((b.durationMinutes ?? 60) / total) * 100;
           return (
             <div
               key={b.id}
-              className="absolute top-1 bottom-1 rounded-lg bg-[#FFD54A]/30 border border-[#FFD54A]/50"
+              className="absolute top-1 bottom-1 rounded-lg bg-[var(--primary)]/30 border border-[var(--primary)]/50"
               style={{ left: `${Math.max(0, left)}%`, width: `${Math.min(w, 100 - left)}%` }}
               title={`${formatTimeSlot(b.timeSlot)} – ${formatDuration(b.durationMinutes ?? 60)}`}
             />
@@ -79,24 +79,24 @@ function CompareColumn({
   return (
     <motion.div
       layout
-      className="flex min-w-[280px] max-w-[320px] flex-shrink-0 flex-col rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md overflow-hidden shadow-lg hover:shadow-xl transition-all duration-200"
+      className="flex min-w-[280px] max-w-[320px] flex-shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md overflow-hidden shadow-lg hover:shadow-xl transition-all duration-200"
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
     >
       {/* Sticky header */}
-      <div className="sticky top-0 z-10 border-b border-[rgba(255,255,255,0.06)] bg-[rgba(17,17,19,0.85)] backdrop-blur-md p-6">
+      <div className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--surfaceElevated)] backdrop-blur-md p-6">
         <div>
-          <h3 className="text-lg font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">{room.name}</h3>
-          <p className="mt-1 text-sm text-[rgba(255,255,255,0.65)]">{getBuildingTicketLabel(room.building)}</p>
+          <h3 className="text-lg font-semibold tracking-tight text-[var(--text)]">{room.name}</h3>
+          <p className="mt-1 text-sm text-[var(--textSecondary)]">{getBuildingTicketLabel(room.building)}</p>
         </div>
         <div className="mt-4 flex items-baseline justify-between">
-          <span className="text-2xl font-bold text-[#FFD54A]">{room.capacity}</span>
-          <span className="text-xs text-[rgba(255,255,255,0.48)]">capacity</span>
+          <span className="text-2xl font-bold text-[var(--primary)]">{room.capacity}</span>
+          <span className="text-xs text-[var(--textMuted)]">capacity</span>
         </div>
         <Link
           href={`/book?roomId=${encodeURIComponent(String(room.id))}`}
-          className="mt-5 block w-full rounded-full bg-[#FFD54A] py-3 text-center text-sm font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[#F6C445] hover:shadow-[#FFD54A]/25 focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
+          className="mt-5 block w-full rounded-full bg-[var(--primary)] py-3 text-center text-sm font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
         >
           Book this room
         </Link>
@@ -107,22 +107,22 @@ function CompareColumn({
           <AVAndFurnitureSections room={room} animatedBadges={false} compact />
         </section>
         <section>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[rgba(255,255,255,0.48)]">Availability</p>
-          <p className="mb-1 text-[10px] text-[rgba(255,255,255,0.48)]">{availDate}</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Availability</p>
+          <p className="mb-1 text-[10px] text-[var(--textMuted)]">{availDate}</p>
           <MiniAvailability room={room} date={availDate} />
         </section>
         <section>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[rgba(255,255,255,0.48)]">Highlights</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Highlights</p>
           <ul className="space-y-1">
             {notes.map((n) => (
-              <li key={n} className="text-sm text-[rgba(255,255,255,0.65)]">· {n}</li>
+              <li key={n} className="text-sm text-[var(--textSecondary)]">· {n}</li>
             ))}
           </ul>
         </section>
         <button
           type="button"
           onClick={() => setDetailsOpen(true)}
-          className="w-full rounded-full border border-[rgba(255,255,255,0.08)] py-2.5 text-sm font-medium text-[rgba(255,255,255,0.65)] transition-all duration-200 hover:border-[rgba(255,255,255,0.12)] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
+          className="w-full rounded-full border border-[var(--border)] py-2.5 text-sm font-medium text-[var(--textSecondary)] transition-all duration-200 hover:border-[var(--borderStrong)] hover:text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
         >
           View full details
         </button>
@@ -172,24 +172,24 @@ export default function ComparePage() {
     const isSingle = compareRooms.length === 1;
     return (
       <div className="mx-auto max-w-[1200px] px-6 py-16 sm:px-8 sm:py-20 lg:px-10">
-        <h1 className="text-4xl font-bold tracking-tight text-[rgba(255,255,255,0.92)] sm:text-5xl" style={{ letterSpacing: "-0.02em" }}>Compare Rooms</h1>
-        <p className="mt-2 text-lg text-[rgba(255,255,255,0.65)]">
+        <h1 className="text-4xl font-bold tracking-tight text-[var(--text)] sm:text-5xl" style={{ letterSpacing: "-0.02em" }}>Compare Rooms</h1>
+        <p className="mt-2 text-lg text-[var(--textSecondary)]">
           {isSingle
             ? "Add one more room to compare side-by-side."
             : "Select 2–4 rooms from the Rooms dashboard or booking flow to compare."}
         </p>
-        <div className="mt-12 rounded-2xl border-2 border-dashed border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.50)] backdrop-blur-md py-20 text-center">
-          <p className="text-lg font-medium text-[rgba(255,255,255,0.65)]">
+        <div className="mt-12 rounded-2xl border-2 border-dashed border-[var(--border)] bg-[var(--surface)] backdrop-blur-md py-20 text-center">
+          <p className="text-lg font-medium text-[var(--textSecondary)]">
             {isSingle ? "Add one more room to compare" : "Add rooms to compare"}
           </p>
-          <p className="mt-2 text-sm text-[rgba(255,255,255,0.48)]">
+          <p className="mt-2 text-sm text-[var(--textMuted)]">
             {isSingle
               ? "Use \"Add to compare\" on another room card, then open Compare in the bar below."
               : "Use \"Add to compare\" in the quick-view overlay on room cards, then click Compare in the bar below."}
           </p>
           <Link
             href="/rooms"
-            className="mt-6 inline-flex rounded-full bg-[#FFD54A] px-6 py-3 font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[#F6C445] hover:shadow-[#FFD54A]/25 focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
+            className="mt-6 inline-flex rounded-full bg-[var(--primary)] px-6 py-3 font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
           >
             {isSingle ? "Browse rooms to add" : "Browse rooms"}
           </Link>
@@ -199,24 +199,24 @@ export default function ComparePage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
-          className="mt-12 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-8"
+          className="mt-12 rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8"
         >
-          <h2 className="text-xl font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">Most booked buildings</h2>
-          <p className="mt-1 text-sm text-[rgba(255,255,255,0.65)]">Based on your bookings.</p>
+          <h2 className="text-xl font-semibold tracking-tight text-[var(--text)]">Most booked buildings</h2>
+          <p className="mt-1 text-sm text-[var(--textSecondary)]">Based on your bookings.</p>
           {mostBookedBuildings.length > 0 ? (
             <div className="mt-6 flex flex-wrap gap-3">
               {mostBookedBuildings.map(({ code, count }) => (
                 <span
                   key={code}
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#FFD54A]/30 bg-[#FFD54A]/10 px-4 py-2.5 text-sm"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-4 py-2.5 text-sm"
                 >
-                  <span className="font-medium text-[#FFD54A]">{getBuildingTicketLabel(code)}</span>
-                  <span className="text-[rgba(255,255,255,0.65)]">{count} booking{count !== 1 ? "s" : ""}</span>
+                  <span className="font-medium text-[var(--primary)]">{getBuildingTicketLabel(code)}</span>
+                  <span className="text-[var(--textSecondary)]">{count} booking{count !== 1 ? "s" : ""}</span>
                 </span>
               ))}
             </div>
           ) : (
-            <p className="mt-4 text-sm text-[rgba(255,255,255,0.65)]">No bookings yet. Book a room to see your most used buildings here.</p>
+            <p className="mt-4 text-sm text-[var(--textSecondary)]">No bookings yet. Book a room to see your most used buildings here.</p>
           )}
         </motion.section>
       </div>
@@ -227,13 +227,13 @@ export default function ComparePage() {
     <div className="mx-auto max-w-[1200px] px-6 py-12 sm:px-8 sm:py-16 lg:px-10">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-4xl font-bold tracking-tight text-[rgba(255,255,255,0.92)] sm:text-5xl" style={{ letterSpacing: "-0.02em" }}>Compare Rooms</h1>
-          <p className="mt-2 text-lg text-[rgba(255,255,255,0.65)]">Side-by-side comparison of selected rooms.</p>
+          <h1 className="text-4xl font-bold tracking-tight text-[var(--text)] sm:text-5xl" style={{ letterSpacing: "-0.02em" }}>Compare Rooms</h1>
+          <p className="mt-2 text-lg text-[var(--textSecondary)]">Side-by-side comparison of selected rooms.</p>
         </div>
         <button
           type="button"
           onClick={clearCompare}
-          className="rounded-full border border-[rgba(255,255,255,0.08)] bg-transparent px-5 py-2.5 text-sm font-medium text-[rgba(255,255,255,0.65)] transition-all duration-200 hover:border-[rgba(255,255,255,0.12)] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
+          className="rounded-full border border-[var(--border)] bg-transparent px-5 py-2.5 text-sm font-medium text-[var(--textSecondary)] transition-all duration-200 hover:border-[var(--borderStrong)] hover:text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
         >
           Clear all
         </button>
@@ -248,8 +248,8 @@ export default function ComparePage() {
             onClick={() => setMobileIndex(i)}
             className={`shrink-0 rounded-full border px-5 py-2.5 text-sm font-medium transition-all duration-200 ${
               mobileIndex === i
-                ? "border-[#FFD54A] bg-[#FFD54A] text-black shadow-lg"
-                : "border-[rgba(255,255,255,0.08)] text-[rgba(255,255,255,0.65)] hover:text-white hover:border-[rgba(255,255,255,0.12)]"
+                ? "border-[var(--primary)] bg-[var(--primary)] text-black shadow-lg"
+                : "border-[var(--border)] text-[var(--textSecondary)] hover:text-[var(--text)] hover:border-[var(--borderStrong)]"
             }`}
           >
             {room.name}

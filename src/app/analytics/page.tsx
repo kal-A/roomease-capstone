@@ -18,10 +18,10 @@ import {
 import { useBookings } from "@/lib/bookingsStore";
 import { getBuildingTicketLabel } from "@/lib/buildings";
 
-const GOLD = "#FFD54A";
-const GOLD_DIM = "rgba(255, 213, 74, 0.6)";
-const AXIS_STROKE = "rgba(255, 255, 255, 0.48)";
-const GRID_STROKE = "rgba(255, 255, 255, 0.06)";
+const GOLD = "var(--primary)";
+const GOLD_DIM = "var(--primary)";
+const AXIS_STROKE = "var(--textMuted)";
+const GRID_STROKE = "var(--border)";
 
 function useAnalyticsData(bookings: ReturnType<typeof useBookings>["bookings"]) {
   return useMemo(() => {
@@ -56,8 +56,8 @@ function useAnalyticsData(bookings: ReturnType<typeof useBookings>["bookings"]) 
       .slice(0, 10);
 
     const capacityData = [
-      { name: "Small (0–50)", value: capacityBuckets.small, fill: "#3f3f3f" },
-      { name: "Medium (50–150)", value: capacityBuckets.medium, fill: "#525252" },
+      { name: "Small (0–50)", value: capacityBuckets.small, fill: "var(--textMuted)" },
+      { name: "Medium (50–150)", value: capacityBuckets.medium, fill: "var(--textSecondary)" },
       { name: "Large (150+)", value: capacityBuckets.large, fill: GOLD_DIM },
     ];
 
@@ -75,10 +75,10 @@ export default function AnalyticsPage() {
   return (
     <div className="mx-auto max-w-[1200px] px-6 py-12 sm:px-8 sm:py-16 lg:px-10">
       <div className="mb-10">
-        <h1 className="text-4xl font-bold tracking-tight text-[rgba(255,255,255,0.92)] sm:text-5xl" style={{ letterSpacing: "-0.02em" }}>
+        <h1 className="text-4xl font-bold tracking-tight text-[var(--text)] sm:text-5xl" style={{ letterSpacing: "-0.02em" }}>
           Booking Analytics
         </h1>
-        <p className="mt-2 text-lg text-[rgba(255,255,255,0.65)]">
+        <p className="mt-2 text-lg text-[var(--textSecondary)]">
           Most booked buildings, popular rooms, capacity distribution, and trends.
         </p>
       </div>
@@ -87,13 +87,13 @@ export default function AnalyticsPage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="rounded-2xl border-2 border-dashed border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.50)] backdrop-blur-md py-20 text-center"
+          className="rounded-2xl border-2 border-dashed border-[var(--border)] bg-[var(--surface)] backdrop-blur-md py-20 text-center"
         >
-          <p className="text-lg font-medium text-[rgba(255,255,255,0.65)]">No bookings yet</p>
-          <p className="mt-2 text-sm text-[rgba(255,255,255,0.48)]">Analytics will appear once you have bookings.</p>
+          <p className="text-lg font-medium text-[var(--textSecondary)]">No bookings yet</p>
+          <p className="mt-2 text-sm text-[var(--textMuted)]">Analytics will appear once you have bookings.</p>
           <Link
             href="/book"
-            className="mt-6 inline-flex rounded-full bg-[#FFD54A] px-6 py-3 font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[#F6C445] hover:shadow-[#FFD54A]/25 focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
+            className="mt-6 inline-flex rounded-full bg-[var(--primary)] px-6 py-3 font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
           >
             Book a Room
           </Link>
@@ -105,9 +105,9 @@ export default function AnalyticsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
           >
-            <h2 className="mb-6 text-xl font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">Most Booked Buildings</h2>
+            <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">Most Booked Buildings</h2>
             <div className="min-h-[200px] flex-1 flex items-stretch">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
@@ -116,23 +116,23 @@ export default function AnalyticsPage() {
                   margin={{ top: 0, right: 8, left: 0, bottom: 0 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} horizontal={false} />
-                  <XAxis type="number" stroke={AXIS_STROKE} tick={{ fill: "#a3a3a3", fontSize: 11 }} />
+                  <XAxis type="number" stroke={AXIS_STROKE} tick={{ fill: "var(--textMuted)", fontSize: 11 }} />
                   <YAxis
                     type="category"
                     dataKey="name"
                     width={100}
                     stroke={AXIS_STROKE}
-                    tick={{ fill: "rgba(255, 255, 255, 0.65)", fontSize: 11 }}
+                    tick={{ fill: "var(--textSecondary)", fontSize: 11 }}
                     tickFormatter={(v) => (v.length > 18 ? v.slice(0, 16) + "…" : v)}
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "rgba(17, 17, 19, 0.85)",
-                      border: "1px solid rgba(255, 255, 255, 0.08)",
+                      backgroundColor: "var(--surfaceElevated)",
+                      border: "1px solid var(--border)",
                       borderRadius: "16px",
                       backdropFilter: "blur(16px)",
                     }}
-                    labelStyle={{ color: "rgba(255, 255, 255, 0.92)" }}
+                    labelStyle={{ color: "var(--text)" }}
                     formatter={(value) => [value ?? 0, "Bookings"]}
                   />
                   <Bar dataKey="count" radius={[0, 4, 4, 0]} animationDuration={600} animationBegin={0}>
@@ -150,9 +150,9 @@ export default function AnalyticsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
           >
-            <h2 className="mb-6 text-xl font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">Most Booked Rooms</h2>
+            <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">Most Booked Rooms</h2>
             <ul className="space-y-3">
               {byRoomList.map(({ roomId, roomName, building, count }, i) => (
                 <motion.li
@@ -160,17 +160,17 @@ export default function AnalyticsPage() {
                   initial={{ opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.05 * i }}
-                  className="flex items-center justify-between gap-4 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] px-5 py-4 transition-all duration-200 hover:border-[rgba(255,255,255,0.12)]"
+                  className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-5 py-4 transition-all duration-200 hover:border-[var(--borderStrong)]"
                 >
                   <div className="min-w-0">
-                    <p className="font-medium text-[rgba(255,255,255,0.92)] truncate">{roomName}</p>
-                    <p className="text-sm text-[rgba(255,255,255,0.65)]">{getBuildingTicketLabel(building)}</p>
+                    <p className="font-medium text-[var(--text)] truncate">{roomName}</p>
+                    <p className="text-sm text-[var(--textSecondary)]">{getBuildingTicketLabel(building)}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
-                    <span className="text-sm text-[rgba(255,255,255,0.65)]">{count} booking{count !== 1 ? "s" : ""}</span>
+                    <span className="text-sm text-[var(--textSecondary)]">{count} booking{count !== 1 ? "s" : ""}</span>
                     <Link
                       href={`/book?roomId=${encodeURIComponent(roomId)}`}
-                      className="rounded-full bg-[#FFD54A] px-4 py-2 text-sm font-semibold text-black transition-all duration-200 hover:bg-[#F6C445] hover:shadow-[#FFD54A]/20 focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
+                      className="rounded-full bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-black transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
                     >
                       Book this room
                     </Link>
@@ -185,9 +185,9 @@ export default function AnalyticsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.2 }}
-            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
           >
-            <h2 className="mb-6 text-xl font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">Capacity Distribution</h2>
+            <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">Capacity Distribution</h2>
             <div className="min-h-[200px] flex-1 flex items-stretch">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
@@ -198,13 +198,13 @@ export default function AnalyticsPage() {
                   <XAxis
                     dataKey="name"
                     stroke={AXIS_STROKE}
-                    tick={{ fill: "rgba(255, 255, 255, 0.65)", fontSize: 11 }}
+                    tick={{ fill: "var(--textSecondary)", fontSize: 11 }}
                   />
-                  <YAxis stroke={AXIS_STROKE} tick={{ fill: "#a3a3a3", fontSize: 11 }} />
+                  <YAxis stroke={AXIS_STROKE} tick={{ fill: "var(--textMuted)", fontSize: 11 }} />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: "#1A1A1A",
-                        border: "1px solid #2A2A2A",
+                        backgroundColor: "var(--surfaceElevated)",
+                        border: "1px solid var(--border)",
                         borderRadius: "8px",
                       }}
                       formatter={(value) => [value ?? 0, "Bookings"]}
@@ -224,12 +224,12 @@ export default function AnalyticsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.3 }}
-            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
           >
-            <h2 className="mb-6 text-xl font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">Booking Trends</h2>
+            <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">Booking Trends</h2>
             <div className="min-h-[200px] flex-1 flex items-stretch">
               {trendsData.length === 0 ? (
-                <p className="flex h-full items-center justify-center text-sm text-[rgba(255,255,255,0.65)]">No date data yet</p>
+                <p className="flex h-full items-center justify-center text-sm text-[var(--textSecondary)]">No date data yet</p>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={trendsData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
@@ -237,14 +237,14 @@ export default function AnalyticsPage() {
                     <XAxis
                       dataKey="date"
                       stroke={AXIS_STROKE}
-                      tick={{ fill: "#a3a3a3", fontSize: 10 }}
+                      tick={{ fill: "var(--textMuted)", fontSize: 10 }}
                       tickFormatter={(v) => v.slice(5)}
                     />
-                    <YAxis stroke={AXIS_STROKE} tick={{ fill: "#a3a3a3", fontSize: 11 }} allowDecimals={false} />
+                    <YAxis stroke={AXIS_STROKE} tick={{ fill: "var(--textMuted)", fontSize: 11 }} allowDecimals={false} />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: "#1A1A1A",
-                        border: "1px solid #2A2A2A",
+                        backgroundColor: "var(--surfaceElevated)",
+                        border: "1px solid var(--border)",
                         borderRadius: "8px",
                       }}
                       labelFormatter={(v) => `Date: ${v}`}
