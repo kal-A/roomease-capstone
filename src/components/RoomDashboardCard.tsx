@@ -14,7 +14,11 @@ interface RoomDashboardCardProps {
   hoveredRoomId?: string | number | null;
   onHoverStart?: () => void;
   onHoverEnd?: () => void;
+  /** When true, show "Best Match" badge (e.g. first result in Recommended sort) */
+  isBestMatch?: boolean;
 }
+
+const CAP_MAX = 400;
 
 export function RoomDashboardCard({
   room,
@@ -22,6 +26,7 @@ export function RoomDashboardCard({
   hoveredRoomId,
   onHoverStart,
   onHoverEnd,
+  isBestMatch = false,
 }: RoomDashboardCardProps) {
   const [quickViewOpen, setQuickViewOpen] = useState(false);
   const { isInCompare, toggleCompare } = useCompare();
@@ -48,8 +53,8 @@ export function RoomDashboardCard({
   return (
     <>
       <motion.article
-        className="relative flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 min-h-[20rem] transition-all duration-200 shadow-[var(--shadowSm)] hover:shadow-[var(--shadowMd)] hover:border-[var(--borderStrong)] hover:-translate-y-0.5"
-        style={{ borderWidth: "1px", borderRadius: "var(--radiusXl)" }}
+        className="card-elevated relative flex flex-col p-6 min-h-[20rem]"
+        style={{ borderWidth: "1px", borderRadius: "var(--radiusLg)" }}
         data-room-id={room.id}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -91,14 +96,29 @@ export function RoomDashboardCard({
 
         {/* Content: reserve space so 3-dot never covers title/capacity */}
         <div className="pr-12">
-          <h3 className="truncate text-lg font-semibold tracking-tight text-[var(--text)]">{room.name}</h3>
-          <span className="mt-2 inline-block rounded-xl border border-[var(--border)] bg-[var(--surfaceElevated)] px-3 py-1 text-xs font-medium text-[var(--textSecondary)]">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="truncate text-lg font-semibold tracking-tight text-[var(--text)]">{room.name}</h3>
+            {isBestMatch && (
+              <span className="shrink-0 rounded-md border border-[var(--primary)]/50 bg-[var(--primary)]/12 px-2 py-0.5 text-xs font-medium text-[var(--primary)]">
+                Best Match
+              </span>
+            )}
+          </div>
+          <span className="mt-2 inline-block rounded-lg border border-[var(--border)] bg-[var(--surfaceElevated)] px-2.5 py-1 text-xs font-medium text-[var(--textSecondary)]" style={{ borderRadius: "var(--radiusSm)" }}>
             {getBuildingTicketLabel(room.building)}
           </span>
         </div>
-        <div className="mt-2 flex justify-end gap-1 text-right">
-          <span className="text-2xl font-bold text-[var(--primary)]">{room.capacity}</span>
-          <span className="text-sm text-[var(--textMuted)] self-end">capacity</span>
+        <div className="mt-4">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-2xl font-bold text-[var(--primary)]">{room.capacity}</span>
+            <span className="text-sm text-[var(--textMuted)]">capacity</span>
+          </div>
+          <div className="mt-1.5 h-1.5 w-full rounded-full bg-[var(--border)] overflow-hidden" style={{ borderRadius: "var(--radiusSm)" }}>
+            <div
+              className="h-full rounded-full bg-[var(--primary)]/60 transition-all duration-300"
+              style={{ width: `${Math.min(100, (room.capacity / CAP_MAX) * 100)}%`, borderRadius: "var(--radiusSm)" }}
+            />
+          </div>
         </div>
         <div className="mt-4 space-y-3">
           <AVAndFurnitureSections room={room} animatedBadges />
@@ -108,7 +128,8 @@ export function RoomDashboardCard({
         <div className="mt-4 pt-4 border-t border-[var(--border)]">
           <Link
             href={`/book?roomId=${encodeURIComponent(String(room.id))}`}
-            className="flex h-10 w-full items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold text-black shadow-sm transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] active:scale-[0.98]"
+            className="flex h-10 w-full items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold text-black shadow-sm transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] focus:ring-offset-2 focus:ring-offset-[var(--surface)] active:scale-[0.98]"
+            style={{ boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}
           >
             Book this room
           </Link>

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { EmptyState } from "@/components/EmptyState";
 import { ROOMS } from "@/data/rooms";
 import { getBuildingTicketLabel } from "@/lib/buildings";
 import { useCompare } from "@/lib/compareStore";
@@ -178,22 +179,21 @@ export default function ComparePage() {
             ? "Add one more room to compare side-by-side."
             : "Select 2–4 rooms from the Rooms dashboard or booking flow to compare."}
         </p>
-        <div className="mt-12 rounded-2xl border-2 border-dashed border-[var(--border)] bg-[var(--surface)] backdrop-blur-md py-20 text-center">
-          <p className="text-lg font-medium text-[var(--textSecondary)]">
-            {isSingle ? "Add one more room to compare" : "Add rooms to compare"}
-          </p>
-          <p className="mt-2 text-sm text-[var(--textMuted)]">
-            {isSingle
-              ? "Use \"Add to compare\" on another room card, then open Compare in the bar below."
-              : "Use \"Add to compare\" in the quick-view overlay on room cards, then click Compare in the bar below."}
-          </p>
-          <Link
-            href="/rooms"
-            className="mt-6 inline-flex rounded-full bg-[var(--primary)] px-6 py-3 font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
-          >
-            {isSingle ? "Browse rooms to add" : "Browse rooms"}
-          </Link>
-        </div>
+        <EmptyState
+          icon={
+            <svg className="h-12 w-12 text-[var(--textMuted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2} aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+          }
+          title={isSingle ? "Add one more room" : "Compare rooms"}
+          description={isSingle ? "Add another room from the Rooms page to compare side-by-side." : "Select 2–4 rooms from the Rooms dashboard or booking flow to compare features and capacity."}
+          suggestion={isSingle ? "Use the 3-dot menu on a room card and choose \"Add to Compare\", then open the Compare bar below." : "Use \"Add to compare\" on room cards, then click Compare in the bar at the bottom."}
+          action={
+            <Link href="/rooms" className="inline-flex rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-black shadow-md transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]">
+              {isSingle ? "Browse rooms to add" : "Browse rooms"}
+            </Link>
+          }
+        />
 
         <motion.section
           initial={{ opacity: 0, y: 8 }}

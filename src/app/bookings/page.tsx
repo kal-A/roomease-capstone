@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useBookings, type Booking, formatBookingTime } from "@/lib/bookingsStore";
 import { EditBookingModal } from "@/components/EditBookingModal";
 import { DeleteBookingModal } from "@/components/DeleteBookingModal";
+import { EmptyState } from "@/components/EmptyState";
 import { getBuildingTicketLabel } from "@/lib/buildings";
 import { formatTimeSlot } from "@/types/booking";
 
@@ -270,15 +271,21 @@ export default function MyBookingsPage() {
       </div>
 
       {!hasBookings ? (
-        <div className="rounded-2xl border-2 border-dashed border-[var(--border)] bg-[var(--surface)] backdrop-blur-md py-20 text-center">
-          <p className="text-lg font-medium text-[var(--textSecondary)]">No bookings yet</p>
-          <Link
-            href="/book"
-            className="mt-6 inline-flex rounded-full bg-[var(--primary)] px-6 py-3 font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
-          >
-            Book a Room
-          </Link>
-        </div>
+        <EmptyState
+          icon={
+            <svg className="h-12 w-12 text-[var(--textMuted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2} aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          }
+          title="No bookings yet"
+          description="Your scheduled room reservations will appear here."
+          suggestion="Book a room to get started."
+          action={
+            <Link href="/book" className="inline-flex rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-black shadow-md transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]">
+              Book a Room
+            </Link>
+          }
+        />
       ) : viewMode === "calendar" ? (
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-6 sm:p-8 shadow-lg">
           <div className="mb-6 flex items-center justify-between">
@@ -347,7 +354,8 @@ export default function MyBookingsPage() {
           {list.map((b) => (
             <article
               key={b.id}
-              className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-6 shadow-lg transition-all duration-200 hover:border-[var(--borderStrong)] hover:shadow-xl hover:-translate-y-1"
+              className="card-elevated p-6"
+              style={{ borderRadius: "var(--radiusLg)" }}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">

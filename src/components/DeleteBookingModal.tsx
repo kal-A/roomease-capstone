@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { motion } from "framer-motion";
 
 interface DeleteBookingModalProps {
   isOpen: boolean;
@@ -30,10 +31,20 @@ export function DeleteBookingModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} aria-hidden />
-      <div
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
         className="relative z-10 w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--surfaceElevated)] shadow-[var(--shadowXl)] p-6"
-        style={{ borderWidth: "1px" }}
+        style={{ borderWidth: "1px", borderRadius: "var(--radiusLg)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-semibold text-[var(--text)]">Delete booking</h3>
@@ -56,7 +67,7 @@ export function DeleteBookingModal({
             Delete
           </button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

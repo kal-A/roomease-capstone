@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { EmptyState } from "@/components/EmptyState";
 import {
   BarChart,
   Bar,
@@ -84,20 +85,21 @@ export default function AnalyticsPage() {
       </div>
 
       {bookings.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="rounded-2xl border-2 border-dashed border-[var(--border)] bg-[var(--surface)] backdrop-blur-md py-20 text-center"
-        >
-          <p className="text-lg font-medium text-[var(--textSecondary)]">No bookings yet</p>
-          <p className="mt-2 text-sm text-[var(--textMuted)]">Analytics will appear once you have bookings.</p>
-          <Link
-            href="/book"
-            className="mt-6 inline-flex rounded-full bg-[var(--primary)] px-6 py-3 font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
-          >
-            Book a Room
-          </Link>
-        </motion.div>
+        <EmptyState
+          icon={
+            <svg className="h-12 w-12 text-[var(--textMuted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2} aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+          }
+          title="No analytics yet"
+          description="Booking analytics will appear once you have at least one booking."
+          suggestion="Book a room to see most booked buildings, popular rooms, and trends."
+          action={
+            <Link href="/book" className="inline-flex rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-black shadow-md transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]">
+              Book a Room
+            </Link>
+          }
+        />
       ) : (
         <div className="grid gap-8 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 auto-rows-fr" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))" }}>
           {/* Section 1 — Most Booked Buildings (bar chart) */}
@@ -107,7 +109,12 @@ export default function AnalyticsPage() {
             transition={{ duration: 0.4 }}
             className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
           >
-            <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">Most Booked Buildings</h2>
+            <div className="mb-6 flex items-center gap-2">
+              <h2 className="text-xl font-semibold tracking-tight text-[var(--text)]">Most Booked Buildings</h2>
+              {byBuildingList.length > 0 && (
+                <span className="rounded-md border border-[var(--primary)]/40 bg-[var(--primary)]/10 px-2 py-0.5 text-xs font-medium text-[var(--primary)]">Most Popular</span>
+              )}
+            </div>
             <div className="min-h-[200px] flex-1 flex items-stretch">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
