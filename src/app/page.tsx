@@ -28,22 +28,23 @@ function HomePageContent() {
       {/* Hero */}
       <section className="mx-auto max-w-[1200px] px-6 pt-24 pb-32 sm:px-8 sm:pt-32 sm:pb-40 lg:px-10">
         <div className="mx-auto max-w-3xl text-center">
-          <h1 className="text-5xl font-bold tracking-tight text-[rgba(255,255,255,0.92)] sm:text-6xl lg:text-7xl" style={{ letterSpacing: "-0.02em" }}>
+          <h1 className="text-5xl font-bold tracking-tight text-[var(--text)] sm:text-6xl lg:text-7xl" style={{ letterSpacing: "-0.02em" }}>
             Intelligent Room Booking
           </h1>
-          <p className="mt-6 text-xl leading-relaxed text-[rgba(255,255,255,0.65)] sm:text-2xl">
+          <p className="mt-6 text-xl leading-relaxed text-[var(--textSecondary)] sm:text-2xl">
             Automated, policy-aware room recommendations in seconds.
           </p>
           <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
               href="/book"
-              className="w-full rounded-full bg-[#FFD54A] px-8 py-4 text-center text-base font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[#F6C445] hover:shadow-[#FFD54A]/25 hover:-translate-y-0.5 sm:w-auto"
+              className="w-full rounded-full bg-[var(--primary)] px-8 py-4 text-center text-base font-semibold shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] hover:-translate-y-0.5 hover:shadow-xl sm:w-auto"
+              style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}
             >
               Start Booking
             </Link>
             <Link
               href="/rooms"
-              className="w-full rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md px-8 py-4 text-center text-base font-semibold text-[rgba(255,255,255,0.92)] transition-all duration-200 hover:border-[rgba(255,255,255,0.12)] hover:bg-[rgba(17,17,19,0.85)] sm:w-auto"
+              className="w-full rounded-full border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md px-8 py-4 text-center text-base font-semibold text-[var(--text)] transition-all duration-200 hover:border-[var(--borderStrong)] hover:bg-[var(--surfaceElevated)] sm:w-auto"
             >
               Browse Rooms
             </Link>
@@ -56,9 +57,22 @@ function HomePageContent() {
                   element.scrollIntoView({ behavior: "smooth", block: "start" });
                 }
               }}
-              className="w-full rounded-full border border-[rgba(255,255,255,0.08)] bg-transparent px-8 py-4 text-center text-base font-semibold text-[rgba(255,255,255,0.65)] transition-all duration-200 hover:border-[#FFD54A]/40 hover:text-[#FFD54A] sm:w-auto"
+              className="w-full rounded-full border border-[var(--border)] bg-transparent px-8 py-4 text-center text-base font-semibold text-[var(--textSecondary)] transition-all duration-200 hover:border-[var(--primary)]/40 hover:text-[var(--primary)] sm:w-auto"
             >
               Learn More
+            </a>
+            <a
+              href="#about"
+              onClick={(e) => {
+                e.preventDefault();
+                const element = document.getElementById("about");
+                if (element) {
+                  element.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+              }}
+              className="w-full rounded-full border border-[var(--border)] bg-transparent px-8 py-4 text-center text-base font-semibold text-[var(--textSecondary)] transition-all duration-200 hover:border-[var(--primary)]/40 hover:text-[var(--primary)] sm:w-auto"
+            >
+              About Us
             </a>
           </div>
         </div>
@@ -67,14 +81,14 @@ function HomePageContent() {
       {/* Feature cards */}
       <section
         id="learn-more"
-        className="scroll-mt-20 border-t border-[rgba(255,255,255,0.06)] py-24 sm:py-32"
+        className="scroll-mt-20 border-t border-[var(--border)] py-24 sm:py-32"
       >
         <div className="mx-auto max-w-[1200px] px-6 sm:px-8 lg:px-10">
           <div className="mb-16 text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-[rgba(255,255,255,0.92)] sm:text-4xl">
+            <h2 className="text-3xl font-bold tracking-tight text-[var(--text)] sm:text-4xl">
               Features
             </h2>
-            <p className="mt-4 text-lg text-[rgba(255,255,255,0.65)]">
+            <p className="mt-4 text-lg text-[var(--textSecondary)]">
               Everything you need to book rooms with confidence.
             </p>
           </div>
@@ -116,21 +130,21 @@ function HomePageContent() {
       {/* About section */}
       <section
         id="about"
-        className="scroll-mt-20 border-t border-[rgba(255,255,255,0.06)] py-24 sm:py-32"
+        className="scroll-mt-20 border-t border-[var(--border)] py-24 sm:py-32"
       >
         <div className="mx-auto max-w-[1200px] px-6 sm:px-8 lg:px-10">
           <div className="mb-12 text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-[rgba(255,255,255,0.92)] sm:text-4xl">
+            <h2 className="text-3xl font-bold tracking-tight text-[var(--text)] sm:text-4xl">
               About RoomEase
             </h2>
-            <p className="mt-4 text-lg text-[rgba(255,255,255,0.65)]">
+            <p className="mt-4 text-lg text-[var(--textSecondary)]">
               A capstone MVP for University of Waterloo room booking
             </p>
           </div>
 
           {/* Team Photo Card */}
           <div className="mb-12">
-            <div className="relative overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md shadow-xl">
+            <div className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md shadow-xl">
               <div className="relative aspect-[16/10] w-full">
                 <Image
                   src="/team.jpg"
@@ -149,7 +163,7 @@ function HomePageContent() {
               {["Jey Jeyapalan", "Farhan Valli", "Pranav Gupta", "Kamal Ahsan", "Gurman Rai"].map((name) => (
                 <div
                   key={name}
-                  className="rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md px-5 py-2.5 text-sm font-medium text-[rgba(255,255,255,0.92)] transition-all duration-200 hover:border-[rgba(255,255,255,0.12)] hover:bg-[rgba(17,17,19,0.85)]"
+                  className="rounded-full border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md px-5 py-2.5 text-sm font-medium text-[var(--text)] transition-all duration-200 hover:border-[var(--borderStrong)] hover:bg-[var(--surfaceElevated)]"
                 >
                   {name}
                 </div>
@@ -159,19 +173,19 @@ function HomePageContent() {
 
           {/* Content Cards */}
           <div className="grid gap-8 lg:grid-cols-2">
-            <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-8 shadow-lg">
-              <h3 className="mb-4 text-2xl font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg">
+              <h3 className="mb-4 text-2xl font-semibold tracking-tight text-[var(--text)]">
                 Who we are
               </h3>
-              <p className="text-base leading-relaxed text-[rgba(255,255,255,0.65)]">
+              <p className="text-base leading-relaxed text-[var(--textSecondary)]">
                 We're a team of University of Waterloo students building RoomEase as a capstone project. Our focus is a clean, UI-first booking experience that feels production-ready while keeping the logic intentionally simple for an MVP.
               </p>
             </div>
-            <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-8 shadow-lg">
-              <h3 className="mb-4 text-2xl font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg">
+              <h3 className="mb-4 text-2xl font-semibold tracking-tight text-[var(--text)]">
                 The problem we're solving
               </h3>
-              <p className="text-base leading-relaxed text-[rgba(255,255,255,0.65)]">
+              <p className="text-base leading-relaxed text-[var(--textSecondary)]">
                 Room bookings on campus can be fragmented and unclear. RoomEase centralizes event intake, recommends suitable rooms based on constraints, and confirms bookings in a single flow—while simulating availability and preventing double bookings.
               </p>
             </div>
@@ -204,13 +218,13 @@ function FeatureCard({
   return (
     <Link
       href={link}
-      className="group rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] backdrop-blur-md p-8 shadow-lg transition-all duration-200 hover:border-[rgba(255,255,255,0.12)] hover:bg-[rgba(17,17,19,0.85)] hover:shadow-xl hover:-translate-y-1"
+      className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg transition-all duration-200 hover:border-[var(--borderStrong)] hover:bg-[var(--surfaceElevated)] hover:shadow-xl hover:-translate-y-1"
     >
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#FFD54A]/30 bg-[#FFD54A]/10 text-[#FFD54A] transition-all duration-200 group-hover:border-[#FFD54A]/40 group-hover:bg-[#FFD54A]/15">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--primary)]/30 bg-[var(--primary)]/10 text-[var(--primary)] transition-all duration-200 group-hover:border-[var(--primary)]/40 group-hover:bg-[var(--primary)]/15">
         {icon}
       </div>
-      <h3 className="mt-6 text-xl font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">{title}</h3>
-      <p className="mt-3 text-sm leading-relaxed text-[rgba(255,255,255,0.65)]">{description}</p>
+      <h3 className="mt-6 text-xl font-semibold tracking-tight text-[var(--text)]">{title}</h3>
+      <p className="mt-3 text-sm leading-relaxed text-[var(--textSecondary)]">{description}</p>
     </Link>
   );
 }

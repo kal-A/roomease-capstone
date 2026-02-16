@@ -48,7 +48,7 @@ export function BuildingModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden"
       role="dialog"
       aria-modal="true"
       aria-labelledby="building-modal-title"
@@ -58,18 +58,18 @@ export function BuildingModal({
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative z-10 w-full max-w-md max-h-[90vh] flex flex-col rounded-2xl border border-[#2A2A2A] bg-[#1A1A1A] shadow-2xl">
-        <div className="flex shrink-0 flex-col gap-1 border-b border-[#2A2A2A] p-4">
-          <h2 id="building-modal-title" className="text-lg font-semibold text-white">
+      <div className="relative z-10 w-full max-w-md max-h-[85vh] flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] shadow-[var(--shadow-xl)]">
+        <div className="flex shrink-0 flex-col gap-1 border-b border-[var(--border)] p-4">
+          <h2 id="building-modal-title" className="text-lg font-semibold text-[var(--text)]">
             Select a Building
           </h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-[var(--textMuted)]">
             Showing {buildings.length} building{buildings.length !== 1 ? "s" : ""} (from dataset)
           </p>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-gray-400 transition hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#FFD100]"
+            className="rounded-lg p-2 text-[var(--textSecondary)] transition hover:bg-[var(--border)]/50 hover:text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
             aria-label="Close"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -77,13 +77,13 @@ export function BuildingModal({
             </svg>
           </button>
         </div>
-        <div className="p-4 border-b border-[#2A2A2A]">
+        <div className="p-4 border-b border-[var(--border)]">
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search buildings..."
-            className="w-full rounded-xl border border-[#2A2A2A] bg-[#111111] px-4 py-3 text-white placeholder-gray-500 focus:border-[#FFD100] focus:outline-none focus:ring-1 focus:ring-[#FFD100]"
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-[var(--text)] placeholder-[var(--textMuted)] focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--focusRing)]"
           />
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -101,7 +101,7 @@ export function BuildingModal({
                   className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:ring-offset-2 focus:ring-offset-[#1A1A1A] focus-visible:ring-2 ${
                     isSelected
                       ? "border-2 border-[#FFD100] bg-[#FFD100] text-black"
-                      : "border border-[#2A2A2A] bg-[#111111] text-gray-400 hover:border-[#FFD100]/50 hover:text-white"
+                      : "border border-[var(--border)] bg-[var(--surface)] text-[var(--textSecondary)] hover:border-[var(--primary)]/50 hover:text-[var(--text)]"
                   }`}
                 >
                   {b.label}

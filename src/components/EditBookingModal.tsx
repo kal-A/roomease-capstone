@@ -13,7 +13,7 @@ interface EditBookingModalProps {
 }
 
 export function EditBookingModal({ booking, isOpen, onClose }: EditBookingModalProps) {
-  const { bookings, updateBooking } = useBookings();
+  const { bookings, updateBooking, cancelBooking } = useBookings();
   const [eventName, setEventName] = useState(booking.eventName);
   const [organizerName, setOrganizerName] = useState(booking.organizerName);
   const [preferredDate, setPreferredDate] = useState(booking.preferredDate);
@@ -88,28 +88,46 @@ export function EditBookingModal({ booking, isOpen, onClose }: EditBookingModalP
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
       <div
-        className="relative z-10 w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl border border-[#2A2A2A] bg-[#1A1A1A] shadow-2xl"
+        className="relative z-10 w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surfaceElevated)] shadow-[var(--shadowXl)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-[#2A2A2A] p-4">
-          <h2 id="edit-booking-title" className="text-lg font-semibold text-white">
+        <div className="flex items-center justify-between border-b border-[var(--border)] p-4">
+          <h2 id="edit-booking-title" className="text-lg font-semibold text-[var(--text)]">
             Edit booking
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-gray-400 transition hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#FFD100]"
-            aria-label="Close"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm("Delete this booking?")) {
+                  cancelBooking(booking.id);
+                  onClose();
+                }
+              }}
+              className="rounded-lg p-2 text-[var(--textSecondary)] transition hover:bg-[var(--danger)]/20 hover:text-[var(--danger)] focus:outline-none focus:ring-2 focus:ring-[var(--danger)]/50"
+              aria-label="Delete booking"
+              title="Delete booking"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg p-2 text-[var(--textSecondary)] transition hover:bg-[var(--border)]/50 hover:text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
+              aria-label="Close"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-4">
-          <p className="text-sm text-gray-500">Confirmation #{booking.confirmationNumber} (unchanged)</p>
-          <p className="text-sm text-gray-500">Room: {booking.roomName}</p>
+          <p className="text-sm text-[var(--textMuted)]">Confirmation #{booking.confirmationNumber} (unchanged)</p>
+          <p className="text-sm text-[var(--textMuted)]">Room: {booking.roomName}</p>
 
           {conflictError && (
             <div className="rounded-xl border-2 border-[#FFD100]/60 bg-[#FFD100]/10 p-3" role="alert">
@@ -118,41 +136,41 @@ export function EditBookingModal({ booking, isOpen, onClose }: EditBookingModalP
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Event name</label>
+            <label className="block text-sm font-medium text-[var(--textSecondary)] mb-1">Event name</label>
             <input
               type="text"
               value={eventName}
               onChange={(e) => setEventName(e.target.value)}
-              className="w-full rounded-lg border border-[#2A2A2A] bg-[#111111] px-3 py-2 text-white placeholder-gray-500 focus:border-[#FFD100]/50 focus:outline-none focus:ring-1 focus:ring-[#FFD100]"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text)] placeholder-[var(--textMuted)] focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--focusRing)]"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Organizer</label>
+            <label className="block text-sm font-medium text-[var(--textSecondary)] mb-1">Organizer</label>
             <input
               type="text"
               value={organizerName}
               onChange={(e) => setOrganizerName(e.target.value)}
-              className="w-full rounded-lg border border-[#2A2A2A] bg-[#111111] px-3 py-2 text-white placeholder-gray-500 focus:border-[#FFD100]/50 focus:outline-none focus:ring-1 focus:ring-[#FFD100]"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text)] placeholder-[var(--textMuted)] focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--focusRing)]"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Date</label>
+            <label className="block text-sm font-medium text-[var(--textSecondary)] mb-1">Date</label>
             <input
               type="date"
               value={preferredDate}
               onChange={(e) => setPreferredDate(e.target.value)}
-              className="w-full rounded-lg border border-[#2A2A2A] bg-[#111111] px-3 py-2 text-white focus:border-[#FFD100]/50 focus:outline-none focus:ring-1 focus:ring-[#FFD100]"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text)] focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--focusRing)]"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Start time</label>
+            <label className="block text-sm font-medium text-[var(--textSecondary)] mb-1">Start time</label>
             <select
               value={timeSlot}
               onChange={(e) => setTimeSlot(e.target.value)}
-              className="w-full rounded-lg border border-[#2A2A2A] bg-[#111111] px-3 py-2 text-white focus:border-[#FFD100]/50 focus:outline-none focus:ring-1 focus:ring-[#FFD100]"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text)] focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--focusRing)]"
             >
               {TIME_SLOTS_30MIN.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -162,11 +180,11 @@ export function EditBookingModal({ booking, isOpen, onClose }: EditBookingModalP
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Duration</label>
+            <label className="block text-sm font-medium text-[var(--textSecondary)] mb-1">Duration</label>
             <select
               value={durationMinutes}
               onChange={(e) => setDurationMinutes(Number(e.target.value))}
-              className="w-full rounded-lg border border-[#2A2A2A] bg-[#111111] px-3 py-2 text-white focus:border-[#FFD100]/50 focus:outline-none focus:ring-1 focus:ring-[#FFD100]"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text)] focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--focusRing)]"
             >
               {DURATION_PRESETS.map((p) => (
                 <option key={p.value} value={p.value}>
@@ -176,13 +194,13 @@ export function EditBookingModal({ booking, isOpen, onClose }: EditBookingModalP
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Group size</label>
+            <label className="block text-sm font-medium text-[var(--textSecondary)] mb-1">Group size</label>
             <input
               type="number"
               min={1}
               value={groupSize || ""}
               onChange={(e) => setGroupSize(Number(e.target.value) || 0)}
-              className="w-full rounded-lg border border-[#2A2A2A] bg-[#111111] px-3 py-2 text-white placeholder-gray-500 focus:border-[#FFD100]/50 focus:outline-none focus:ring-1 focus:ring-[#FFD100]"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[var(--text)] placeholder-[var(--textMuted)] focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--focusRing)]"
               required
             />
           </div>
@@ -197,7 +215,7 @@ export function EditBookingModal({ booking, isOpen, onClose }: EditBookingModalP
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-[#2A2A2A] bg-transparent px-4 py-3 font-medium text-gray-400 hover:border-gray-500 hover:text-white"
+              className="rounded-xl border border-[var(--border)] bg-transparent px-4 py-3 font-medium text-[var(--textSecondary)] hover:border-[var(--borderStrong)] hover:text-[var(--text)]"
             >
               Cancel
             </button>

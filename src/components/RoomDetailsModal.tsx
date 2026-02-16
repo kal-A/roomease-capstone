@@ -5,9 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { getRoomDetailEntries } from "@/data/rooms";
 import { getBuildingTicketLabel } from "@/lib/buildings";
 import { AVAndFurnitureSections } from "@/components/AVAndFurnitureSections";
+import { DatePickerButton } from "@/components/DatePickerButton";
 import { useBookings } from "@/lib/bookingsStore";
 import type { Room } from "@/types/booking";
-import { timeToMinutes, formatTimeSlot, formatDuration } from "@/types/booking";
+import { timeToMinutes, formatTimeSlot, formatDuration, timeRangesOverlap, TIME_SLOTS_30MIN } from "@/types/booking";
 
 interface RoomDetailsModalProps {
   room: Room;
@@ -15,7 +16,7 @@ interface RoomDetailsModalProps {
   onClose: () => void;
   /** When true, show "Start booking with this room" linking to /book?building=... */
   showStartBooking?: boolean;
-  /** When showStartBooking is false, used for "Select this room" */
+  /** When showStartBooking is false, used for "Book this room" */
   onSelectRoom?: () => void;
 }
 
@@ -30,7 +31,7 @@ export function RoomDetailsModal({
   const [availabilityDate, setAvailabilityDate] = useState(() =>
     new Date().toISOString().slice(0, 10)
   );
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -55,6 +56,18 @@ export function RoomDetailsModal({
     );
   }, [bookings, room.id, availabilityDate]);
 
+  const slotAvailability = useMemo(() => {
+    return TIME_SLOTS_30MIN.map((slot) => {
+      const startM = timeToMinutes(slot.value);
+      const overlaps = availabilityBookings.some((b) => {
+        const bStart = timeToMinutes(b.timeSlot);
+        const bDur = b.durationMinutes ?? 60;
+        return timeRangesOverlap(bStart, bDur, startM, 30);
+      });
+      return { ...slot, available: !overlaps };
+    });
+  }, [availabilityBookings]);
+
   const timelineStart = 9 * 60;
   const timelineEnd = 22 * 60;
   const timelineTotal = timelineEnd - timelineStart;
@@ -68,17 +81,17 @@ export function RoomDetailsModal({
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
       <div
-        className="relative z-10 w-full max-w-md max-h-[90vh] flex flex-col rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.85)] backdrop-blur-xl shadow-2xl"
+        className="relative z-10 w-full max-w-md max-h-[90vh] flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surfaceElevated)] shadow-[var(--shadowXl)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.06)] p-6">
-          <h2 id="room-details-title" className="text-lg font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">
+        <div className="flex items-center justify-between border-b border-[var(--border)] p-6">
+          <h2 id="room-details-title" className="text-lg font-semibold tracking-tight text-[var(--text)]">
             {room.name}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-[rgba(255,255,255,0.65)] transition-all duration-200 hover:bg-[rgba(255,255,255,0.06)] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
+            className="rounded-full p-2 text-[var(--textSecondary)] transition-all duration-200 hover:bg-[var(--border)]/50 hover:text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
             aria-label="Close"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -88,20 +101,20 @@ export function RoomDetailsModal({
         </div>
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
           <div>
-            <p className="text-sm text-[rgba(255,255,255,0.65)]">Building</p>
-            <p className="text-[rgba(255,255,255,0.92)] font-medium mt-1">
+            <p className="text-sm text-[var(--textSecondary)]">Building</p>
+            <p className="text-[var(--text)] font-medium mt-1">
               {getBuildingTicketLabel(room.building)}
             </p>
           </div>
           {room.roomNumber && (
             <div>
-              <p className="text-sm text-[rgba(255,255,255,0.65)]">Room number</p>
-              <p className="text-[rgba(255,255,255,0.92)] font-medium mt-1">{room.roomNumber}</p>
+              <p className="text-sm text-[var(--textSecondary)]">Room number</p>
+              <p className="text-[var(--text)] font-medium mt-1">{room.roomNumber}</p>
             </div>
           )}
           <div>
-            <p className="text-sm text-[rgba(255,255,255,0.65)]">Capacity</p>
-            <p className="text-[rgba(255,255,255,0.92)] font-medium mt-1">{room.capacity}</p>
+            <p className="text-sm text-[var(--textSecondary)]">Capacity</p>
+            <p className="text-[var(--text)] font-medium mt-1">{room.capacity}</p>
           </div>
 
           <div className="space-y-3">
@@ -109,34 +122,21 @@ export function RoomDetailsModal({
           </div>
 
           <div>
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[rgba(255,255,255,0.48)]">Availability</h3>
-            <div className="flex items-center gap-2 mb-3">
-              <button
-                type="button"
-                onClick={() => setShowDatePicker((v) => !v)}
-                className="rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] px-4 py-2 text-sm text-[#FFD54A] transition-all duration-200 hover:border-[#FFD54A]/50 hover:bg-[rgba(17,17,19,0.85)]"
-              >
-                Pick a different date
-              </button>
-              {showDatePicker && (
-                <input
-                  type="date"
-                  value={availabilityDate}
-                  onChange={(e) => {
-                    setAvailabilityDate(e.target.value);
-                    setShowDatePicker(false);
-                  }}
-                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] px-4 py-2 text-sm text-[rgba(255,255,255,0.92)] transition-all duration-200 focus:border-[#FFD54A]/50 focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
-                />
-              )}
-            </div>
-            <p className="text-xs text-[rgba(255,255,255,0.48)] mb-3">Showing {availabilityDate} (9:00 – 22:00)</p>
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--textMuted)]">Availability</h3>
+            <button
+              type="button"
+              onClick={() => setShowAvailabilityModal(true)}
+              className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--primary)] transition-all duration-200 hover:border-[var(--primary)]/50 hover:bg-[var(--surfaceElevated)]"
+            >
+              View availability
+            </button>
+            <p className="text-xs text-[var(--textMuted)] mt-2">Showing {availabilityDate} (9:00 – 22:00)</p>
             {availabilityBookings.length === 0 ? (
-              <p className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)] p-4 text-sm text-[rgba(255,255,255,0.65)]">
+              <p className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-sm text-[var(--textSecondary)] mt-3">
                 No bookings for this room on this date.
               </p>
             ) : (
-              <div className="relative h-12 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.75)]">
+              <div className="relative h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] mt-3">
                 {availabilityBookings.map((b) => {
                   const startM = timeToMinutes(b.timeSlot);
                   const endM = startM + (b.durationMinutes ?? 60);
@@ -156,7 +156,7 @@ export function RoomDetailsModal({
                       }}
                       title={`${formatTimeSlot(b.timeSlot)} – ${formatDuration(b.durationMinutes)}`}
                     >
-                      <span className="rounded-lg bg-[#FFD54A]/30 border border-[#FFD54A]/50 px-1.5 py-0.5 text-[10px] font-medium text-[#FFD54A] truncate max-w-full">
+                      <span className="rounded-lg bg-[var(--primary)]/20 border border-[var(--primary)]/50 px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary)] truncate max-w-full">
                         {formatTimeSlot(b.timeSlot)}–{formatDuration(b.durationMinutes)}
                       </span>
                     </div>
@@ -168,23 +168,24 @@ export function RoomDetailsModal({
 
           {details.length > 0 && (
             <div>
-              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[rgba(255,255,255,0.48)]">Other Details</h3>
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--textMuted)]">Other Details</h3>
               <ul className="space-y-2 text-sm">
                 {details.map(({ key, value }) => (
                   <li key={key} className="flex justify-between gap-2">
-                    <span className="text-[rgba(255,255,255,0.65)]">{key}</span>
-                    <span className="text-[rgba(255,255,255,0.92)]">{value}</span>
+                    <span className="text-[var(--textSecondary)]">{key}</span>
+                    <span className="text-[var(--text)]">{value}</span>
                   </li>
                 ))}
               </ul>
             </div>
           )}
         </div>
-        <div className="border-t border-[rgba(255,255,255,0.06)] p-6 flex gap-3">
+        <div className="border-t border-[var(--border)] p-6 flex gap-3">
           {showStartBooking ? (
             <Link
               href={`/book?roomId=${encodeURIComponent(String(room.id))}`}
-              className="flex-1 rounded-full bg-[#FFD54A] py-3 text-center font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[#F6C445] hover:shadow-[#FFD54A]/25 focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
+              className="flex-1 rounded-full bg-[var(--primary)] py-3 text-center font-semibold shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
+              style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}
             >
               Start booking with this room
             </Link>
@@ -192,20 +193,91 @@ export function RoomDetailsModal({
             <button
               type="button"
               onClick={onSelectRoom}
-              className="flex-1 rounded-full bg-[#FFD54A] py-3 font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[#F6C445] hover:shadow-[#FFD54A]/25 focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
+              className="flex-1 rounded-full bg-[var(--primary)] py-3 font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
             >
-              Select this room
+              Book this room
             </button>
           )}
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-[rgba(255,255,255,0.08)] bg-transparent px-5 py-3 font-medium text-[rgba(255,255,255,0.65)] transition-all duration-200 hover:border-[rgba(255,255,255,0.12)] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
+            className="rounded-full border border-[var(--border)] bg-transparent px-5 py-3 font-medium text-[var(--textSecondary)] transition-all duration-200 hover:border-[var(--borderStrong)] hover:text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
           >
             Close
           </button>
         </div>
       </div>
+
+      {showAvailabilityModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 overflow-hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="availability-modal-title"
+        >
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowAvailabilityModal(false)}
+            aria-hidden="true"
+          />
+          <div
+            className="relative z-10 w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-6 shadow-[var(--shadow-xl)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-[var(--border-divider)] pb-4 mb-4">
+              <h2 id="availability-modal-title" className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
+                Availability — {room.name}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowAvailabilityModal(false)}
+                className="rounded-full p-2 text-[var(--foreground-secondary)] hover:bg-[var(--border-divider)] hover:text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
+                aria-label="Close"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <DatePickerButton
+              value={availabilityDate}
+              onChange={setAvailabilityDate}
+              label="Date"
+              required={false}
+            />
+            <p className="text-xs text-[var(--foreground-tertiary)] mt-2 mb-2">
+              {slotAvailability.filter((s) => s.available).length} of {slotAvailability.length} slots available
+            </p>
+            <div className="grid grid-cols-2 gap-1.5 mb-4 max-h-[140px] overflow-hidden">
+              {slotAvailability.slice(0, 8).map(({ value, label, available }) => (
+                <div
+                  key={value}
+                  className="flex items-center justify-between rounded-lg border border-[var(--border-divider)] bg-[var(--surface)] px-2.5 py-1.5"
+                >
+                  <span className="text-xs font-medium text-[var(--foreground)] truncate">{label}</span>
+                  <span
+                    className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                      available ? "bg-emerald-500/20 text-emerald-600" : "bg-[var(--border-divider)] text-[var(--foreground-tertiary)]"
+                    }`}
+                  >
+                    {available ? "Free" : "Busy"}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {slotAvailability.length > 8 && (
+              <p className="text-xs text-[var(--foreground-tertiary)] mb-3">+{slotAvailability.length - 8} more slots</p>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowAvailabilityModal(false)}
+              className="w-full rounded-full border border-[var(--border)] bg-transparent py-2.5 text-sm font-medium text-[var(--foreground-secondary)] hover:border-[var(--border-hover)] hover:text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

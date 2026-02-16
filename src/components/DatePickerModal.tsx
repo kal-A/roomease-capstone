@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 
@@ -50,9 +51,9 @@ export function DatePickerModal({
 
   if (!isOpen) return null;
 
-  return (
+  const modal = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-hidden"
       role="dialog"
       aria-modal="true"
       aria-labelledby="date-picker-title"
@@ -63,28 +64,17 @@ export function DatePickerModal({
         aria-hidden="true"
       />
       <div
-        className="relative z-10 w-full max-w-sm rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(17,17,19,0.85)] backdrop-blur-xl p-6 shadow-2xl"
+        className="relative z-10 w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--surfaceElevated)] shadow-[var(--shadowXl)] p-6"
+        style={{ borderWidth: "1px" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.06)] pb-4 mb-4">
-          <h2 id="date-picker-title" className="text-lg font-semibold tracking-tight text-[rgba(255,255,255,0.92)]">
-            Select date
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-2 text-[rgba(255,255,255,0.65)] transition-all duration-200 hover:bg-[rgba(255,255,255,0.06)] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#FFD54A]/30"
-            aria-label="Close"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+        <div className="flex items-center justify-between border-b border-[var(--border)] pb-4 mb-4">
+          <h2 id="date-picker-title" className="text-lg font-semibold tracking-tight text-[var(--text)]">Select date</h2>
+          <button type="button" onClick={onClose} className="rounded-full p-2 text-[var(--textSecondary)] hover:bg-[var(--border)]/50 hover:text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]" aria-label="Close">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
-        <div
-          className="rdp-root mx-auto [--rdp-accent-color:#FFD54A] [--rdp-accent-background-color:rgba(255,213,74,0.2)] [--rdp-today-color:#FFD54A]"
-          style={{ color: "rgba(255, 255, 255, 0.92)" }}
-        >
+        <div className="rdp-root mx-auto [--rdp-accent-color:var(--primary)] [--rdp-accent-background-color:var(--gold-subtle)] [--rdp-today-color:var(--primary)]" style={{ color: "var(--text)" }}>
           <DayPicker
             mode="single"
             selected={selected}
@@ -98,4 +88,6 @@ export function DatePickerModal({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modal, document.body) : modal;
 }

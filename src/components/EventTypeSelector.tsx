@@ -23,11 +23,11 @@ export function EventTypeSelector({
 
   return (
     <div>
-      <p className="mb-1.5 block text-sm font-medium text-gray-400">
-        {label} {required && <span className="text-[#FFD100]">*</span>}
+      <p className="mb-1.5 block text-sm font-medium text-[var(--textSecondary)]">
+        {label} {required && <span className="text-[var(--primary)]">*</span>}
       </p>
       <div
-        className="flex flex-wrap gap-2 rounded-xl border border-[#2A2A2A] bg-[#111111] p-3 focus-within:ring-1 focus-within:ring-[#FFD100]"
+        className="flex flex-wrap gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 focus-within:ring-1 focus-within:ring-[var(--focusRing)]"
         role="group"
         aria-label={label}
       >
@@ -38,11 +38,12 @@ export function EventTypeSelector({
               key={type.value}
               type="button"
               onClick={() => onChange(type.value)}
-              className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:ring-offset-2 focus:ring-offset-[#111111] ${
+              className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] ${
                 isSelected
-                  ? "border-2 border-[#FFD100] bg-[#FFD100] text-black"
-                  : "border border-[#2A2A2A] bg-[#1A1A1A] text-gray-400 hover:border-[#FFD100]/50 hover:text-white"
+                  ? "border-2 border-[var(--primary)] bg-[var(--primary)]"
+                  : "border border-[var(--border)] bg-[var(--surface)] text-[var(--textSecondary)] hover:border-[var(--primary)]/50 hover:text-[var(--text)]"
               }`}
+              style={isSelected ? { color: "var(--primaryText)" } : undefined}
             >
               {type.label}
             </button>
@@ -51,15 +52,15 @@ export function EventTypeSelector({
       </div>
       {isOther && (
         <div className="mt-3 overflow-hidden transition-[max-height] duration-200 ease-out" style={{ maxHeight: "80px" }}>
-          <label htmlFor={`${id}-custom`} className="mb-1.5 block text-sm font-medium text-gray-500">
-            Specify event type <span className="text-[#FFD100]">*</span>
+          <label htmlFor={`${id}-custom`} className="mb-1.5 block text-sm font-medium text-[var(--textSecondary)]">
+            Specify event type <span className="text-[var(--primary)]">*</span>
           </label>
           <input
             id={`${id}-custom`}
             type="text"
             value={customValue}
             onChange={(e) => onChange("Other", e.target.value)}
-            className="w-full rounded-xl border border-[#2A2A2A] bg-[#111111] px-4 py-3 text-white placeholder-gray-500 focus:border-[#FFD100] focus:outline-none focus:ring-1 focus:ring-[#FFD100]"
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-[var(--text)] placeholder-[var(--textMuted)] focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--focusRing)]"
             placeholder="e.g., Office hours, thesis defense..."
           />
         </div>

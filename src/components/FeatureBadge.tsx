@@ -3,7 +3,9 @@
 import { motion } from "framer-motion";
 
 const baseClass =
-  "inline-flex rounded-full border border-[#FFD100]/50 bg-[#FFD100]/10 px-2.5 py-1 text-xs font-medium text-[#FFD100]";
+  "inline-flex rounded-full border bg-[var(--gold-badge-bg)] px-2.5 py-1 text-xs font-medium transition-colors";
+const borderClass = "border-[var(--gold-badge-border)]";
+const textClass = "text-[var(--gold-badge-text)]";
 
 interface FeatureBadgeProps {
   children: React.ReactNode;
@@ -12,12 +14,13 @@ interface FeatureBadgeProps {
 }
 
 export function FeatureBadge({ children, animated = true }: FeatureBadgeProps) {
+  const className = `${baseClass} ${borderClass} ${textClass}`;
   if (animated) {
     return (
       <motion.span
-        className={baseClass}
+        className={className}
         whileHover={{
-          boxShadow: "0 0 14px rgba(255, 209, 0, 0.25)",
+          boxShadow: "0 0 12px var(--primaryGlow)",
           transition: { duration: 0.2 },
         }}
         transition={{ duration: 0.2 }}
@@ -26,5 +29,5 @@ export function FeatureBadge({ children, animated = true }: FeatureBadgeProps) {
       </motion.span>
     );
   }
-  return <span className={baseClass}>{children}</span>;
+  return <span className={className}>{children}</span>;
 }

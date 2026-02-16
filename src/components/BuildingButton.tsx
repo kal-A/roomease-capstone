@@ -21,11 +21,11 @@ export function BuildingButton({
 
   return (
     <div>
-      <p className="mb-1.5 block text-sm font-medium text-gray-400">{label}</p>
+      <p className="mb-1.5 block text-sm font-medium text-[var(--textSecondary)]">{label}</p>
       <button
         type="button"
         onClick={() => setModalOpen(true)}
-        className="w-full rounded-xl border border-[#2A2A2A] bg-[#111111] px-4 py-3 text-left text-white transition-all duration-150 hover:border-[#FFD100]/50 focus:border-[#FFD100] focus:outline-none focus:ring-1 focus:ring-[#FFD100]"
+        className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-left text-[var(--text)] transition-all duration-150 hover:border-[var(--primary)]/50 focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--focusRing)]"
       >
         {displayLabel}
       </button>

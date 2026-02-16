@@ -10,17 +10,17 @@ interface ProgressStepperProps {
 export function ProgressStepper({ currentStep, totalSteps }: ProgressStepperProps) {
   return (
     <div className="mb-12">
-      <p className="text-sm font-medium text-[rgba(255,255,255,0.65)]">
+      <p className="text-sm font-medium text-[var(--textSecondary)]">
         Step {currentStep} of {totalSteps}
       </p>
       <div className="mt-3 flex gap-2">
         {Array.from({ length: totalSteps }, (_, i) => (
           <div
             key={i}
-            className="h-1.5 flex-1 overflow-hidden rounded-full bg-[rgba(255,255,255,0.08)]"
+            className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--border)]"
           >
             <motion.div
-              className="h-full rounded-full bg-[#FFD54A]"
+              className="h-full rounded-full bg-[var(--primary)]"
               initial={false}
               animate={{
                 width: i + 1 <= currentStep ? "100%" : "0%",

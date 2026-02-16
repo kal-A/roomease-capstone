@@ -41,8 +41,8 @@ export function AVAndFurnitureSections({
   })();
 
   const headingClass = compact
-    ? "mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500"
-    : "mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500";
+    ? "mb-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]"
+    : "mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--textMuted)]";
   const gapClass = compact ? "gap-1.5" : "gap-2";
 
   return (
@@ -60,7 +60,7 @@ export function AVAndFurnitureSections({
             <FeatureBadge animated={animatedBadges}>Document Camera</FeatureBadge>
           )}
           {!hasStreaming && !hasElectronic && !hasDocCamera && (
-            <span className="text-xs text-gray-500">None listed</span>
+            <span className="text-xs text-[var(--textMuted)]">None listed</span>
           )}
         </div>
       </div>
