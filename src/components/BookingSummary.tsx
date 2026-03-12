@@ -16,6 +16,8 @@ interface BookingSummaryProps {
   confirmationNumber: string;
   /** If true, render as compact ticket sections (for confirmation page). */
   ticketStyle?: boolean;
+  /** If true, render without the outer ticket container (use parent card). */
+  embedded?: boolean;
 }
 
 export function BookingSummary({
@@ -23,6 +25,7 @@ export function BookingSummary({
   room,
   confirmationNumber,
   ticketStyle = false,
+  embedded = false,
 }: BookingSummaryProps) {
   const timeLabel = formatTimeSlot(formData.timeSlot);
   const durationLabel = formatDuration(formData.durationMinutes ?? 60);
@@ -35,11 +38,19 @@ export function BookingSummary({
 
   if (ticketStyle) {
     return (
-      <div className="rounded-xl border-2 border-[var(--primaryBorder)] bg-[var(--surface)] p-4 sm:p-5 shadow-[var(--shadowMd)]">
-        <p className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-[var(--primary)]">
-          Confirmation #{confirmationNumber}
-        </p>
-        <div className="space-y-3">
+      <div
+        className={
+          embedded
+            ? "space-y-3"
+            : "rounded-xl border-2 border-[var(--primaryBorder)] bg-[var(--surface)] p-4 sm:p-5 shadow-[var(--shadowMd)]"
+        }
+      >
+        {!embedded && (
+          <p className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-[var(--primary)]">
+            Confirmation #{confirmationNumber}
+          </p>
+        )}
+        <div className={embedded ? "space-y-3" : "space-y-3"}>
           <section>
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Event</p>
             <p className="mt-0.5 text-[var(--textPrimary)] font-medium">{formData.eventName}</p>

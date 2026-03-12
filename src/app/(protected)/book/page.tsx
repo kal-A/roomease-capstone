@@ -1,6 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ROOMS, getBuildingsFromRooms } from "@/data/rooms";
@@ -16,11 +17,14 @@ import {
 } from "@/types/booking";
 import { furnitureLabelsFromCodes } from "@/lib/furniture";
 import { useBookings } from "@/lib/bookingsStore";
+import { getBlockedAsBookings } from "@/lib/blockingStore";
 import Link from "next/link";
 import { ConfirmationPage } from "@/components/ConfirmationPage";
 import { EventForm } from "@/components/EventForm";
 import { ProgressStepper } from "@/components/ProgressStepper";
 import { RoomRecommendation } from "@/components/RoomRecommendation";
+import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
+import { ApprovalBadge } from "@/components/ApprovalBadge";
 
 const TOTAL_STEPS_FULL = 3;
 const TOTAL_STEPS_DIRECT = 2;
@@ -185,6 +189,7 @@ function BookPageContent() {
   }, [step, lockedRoom]);
 
   const totalSteps = lockedRoom ? TOTAL_STEPS_DIRECT : TOTAL_STEPS_FULL;
+  const { data: session } = useSession();
   const existingBookings = useMemo(
     () =>
       bookings.map((b) => ({
@@ -192,9 +197,17 @@ function BookPageContent() {
         preferredDate: b.preferredDate,
         timeSlot: b.timeSlot,
         durationMinutes: b.durationMinutes,
+        organizerName: b.organizerName,
+        organizerEmail: b.organizerEmail,
       })),
     [bookings]
   );
+
+  const existingBookingsWithBlocked = useMemo(() => {
+    if (!lockedRoom || !formData.preferredDate) return existingBookings;
+    const blocked = getBlockedAsBookings(lockedRoom.id, formData.preferredDate, lockedRoom.building);
+    return [...existingBookings, ...blocked];
+  }, [existingBookings, lockedRoom, formData.preferredDate]);
 
   const handleFormSubmit = useCallback(() => {
     setDoubleBookingError(null);
@@ -212,7 +225,7 @@ function BookPageContent() {
       setDirectBookingError("This room does not fit your group size.");
       return;
     }
-    const overlap = existingBookings.some((b) => {
+    const overlap = existingBookingsWithBlocked.some((b) => {
       if (b.roomId !== String(lockedRoom.id)) return false;
       if (b.preferredDate !== (formData.preferredDate ?? "")) return false;
       const startM = timeToMinutes(formData.timeSlot ?? "");
@@ -222,16 +235,16 @@ function BookPageContent() {
       return timeRangesOverlap(existingStart, existingDuration, startM, durationM);
     });
     if (overlap) {
-      setDirectBookingError("This room is already booked for that time.");
+      setDirectBookingError("This room is already booked or blocked for that time.");
       return;
     }
     setPendingBooking({ room: lockedRoom, formData });
     setShowConfirmModal(true);
-  }, [lockedRoom, formData, existingBookings]);
+  }, [lockedRoom, formData, existingBookingsWithBlocked]);
 
   const handleSelectRoom = useCallback(
     (room: Room) => {
-      const validation = validateRoomForBooking({ room, form: formData, existingBookings });
+      const validation = validateRoomForBooking({ room, form: formData, existingBookings: existingBookingsWithBlocked });
       if (!validation.ok) {
         setDoubleBookingError(validation.errors[0] ?? "This room cannot be booked with the selected constraints.");
         return;
@@ -239,19 +252,23 @@ function BookPageContent() {
       setPendingBooking({ room, formData });
       setShowConfirmModal(true);
     },
-    [formData, existingBookings]
+    [formData, existingBookingsWithBlocked]
   );
 
   const handleConfirmBooking = useCallback(() => {
     if (!pendingBooking) return;
-    const booking = addBooking({ form: pendingBooking.formData, room: pendingBooking.room });
+    const booking = addBooking({
+      form: pendingBooking.formData,
+      room: pendingBooking.room,
+      organizerEmail: session?.user?.email ?? undefined,
+    });
     setConfirmationNumber(booking.confirmationNumber);
     setSelectedRoom(pendingBooking.room);
     setDoubleBookingError(null);
     setShowConfirmModal(false);
     setPendingBooking(null);
     setStep(3);
-  }, [pendingBooking, addBooking]);
+  }, [pendingBooking, addBooking, session?.user?.email]);
 
   const handleBack = useCallback(() => {
     setDoubleBookingError(null);
@@ -270,17 +287,21 @@ function BookPageContent() {
 
   const confirmLockedRoom = useCallback(() => {
     if (!lockedRoom) return;
-    const validation = validateRoomForBooking({ room: lockedRoom, form: formData, existingBookings });
+    const validation = validateRoomForBooking({ room: lockedRoom, form: formData, existingBookings: existingBookingsWithBlocked });
     if (!validation.ok) {
       setSelectedRoomError(validation.errors);
       return;
     }
     setSelectedRoom(lockedRoom);
-    const booking = addBooking({ form: formData, room: lockedRoom });
+    const booking = addBooking({
+      form: formData,
+      room: lockedRoom,
+      organizerEmail: session?.user?.email ?? undefined,
+    });
     setConfirmationNumber(booking.confirmationNumber);
     setSelectedRoomError(null);
     setStep(3);
-  }, [lockedRoom, formData, existingBookings, addBooking]);
+  }, [lockedRoom, formData, existingBookingsWithBlocked, addBooking, session?.user?.email]);
 
   return (
     <div className="mx-auto max-w-[1200px] px-6 py-6 sm:px-8 sm:py-10 lg:px-10">
@@ -307,6 +328,11 @@ function BookPageContent() {
                     <p className="text-xs font-semibold uppercase tracking-wide text-[var(--primary)]">Selected Room</p>
                     <p className="mt-1 text-lg font-semibold tracking-tight text-[var(--text)]">{lockedRoom.name}</p>
                     <p className="mt-1 text-sm text-[var(--textSecondary)]">Capacity {lockedRoom.capacity}</p>
+                    {getRoomMetadataWithDefaults(lockedRoom.id).approvalRequired && (
+                      <div className="mt-3">
+                        <ApprovalBadge variant="required" />
+                      </div>
+                    )}
                   </div>
                   <Link
                     href="/rooms"
@@ -340,7 +366,8 @@ function BookPageContent() {
               buildings={buildingsList}
               directBooking={!!lockedRoom}
               roomId={lockedRoom?.id}
-              existingBookings={existingBookings}
+              existingBookings={existingBookingsWithBlocked}
+              viewerEmail={session?.user?.email ?? null}
             />
           </motion.div>
         )}
@@ -392,7 +419,7 @@ function BookPageContent() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-lg sm:p-8"
+            className="p-0"
           >
             <ConfirmationPage
               formData={formData}

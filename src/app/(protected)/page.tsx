@@ -2,26 +2,48 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Suspense, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
+
+const NAVBAR_OFFSET = 72; // sticky header height for scroll offset
 
 function HomePageContent() {
-  const searchParams = useSearchParams();
-  
+  const pathname = usePathname();
+  const hasScrolledRef = useRef(false);
+
+  // Scroll to hash on mount (e.g. user came from /rooms via /#why)
   useEffect(() => {
-    const scrollTo = searchParams.get("scrollTo");
-    if (scrollTo) {
-      // Small delay to ensure page is rendered
-      setTimeout(() => {
-        const element = document.getElementById(scrollTo);
-        if (element) {
-          element.scrollIntoView({ behavior: "smooth", block: "start" });
-          // Clean up URL without scroll
-          window.history.replaceState({}, "", "/");
-        }
-      }, 100);
+    if (pathname !== "/") {
+      hasScrolledRef.current = false;
+      return;
     }
-  }, [searchParams]);
+    const hash = typeof window !== "undefined" ? window.location.hash.slice(1) : "";
+    if (!hash) return;
+    const el = document.getElementById(hash);
+    if (el && !hasScrolledRef.current) {
+      hasScrolledRef.current = true;
+      const y = el.getBoundingClientRect().top + window.scrollY - NAVBAR_OFFSET;
+      setTimeout(() => {
+        window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+      }, 120);
+    }
+  }, [pathname]);
+
+  // Handle hash change when already on homepage (e.g. in-page link)
+  useEffect(() => {
+    if (pathname !== "/") return;
+    const onHashChange = () => {
+      const hash = window.location.hash.slice(1);
+      if (!hash) return;
+      const el = document.getElementById(hash);
+      if (el) {
+        const y = el.getBoundingClientRect().top + window.scrollY - NAVBAR_OFFSET;
+        window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+      }
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, [pathname]);
 
   return (
     <div className="relative">
@@ -34,7 +56,7 @@ function HomePageContent() {
           <p className="mt-6 text-xl leading-relaxed text-[var(--textSecondary)] sm:text-2xl">
             Automated, policy-aware room recommendations in seconds.
           </p>
-          <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row flex-wrap">
             <Link
               href="/book"
               className="w-full rounded-full bg-[var(--primary)] px-8 py-4 text-center text-base font-semibold shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] hover:-translate-y-0.5 hover:shadow-xl sm:w-auto"
@@ -44,36 +66,28 @@ function HomePageContent() {
             </Link>
             <Link
               href="/rooms"
-              className="w-full rounded-full border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md px-8 py-4 text-center text-base font-semibold text-[var(--text)] transition-all duration-200 hover:border-[var(--borderStrong)] hover:bg-[var(--surfaceElevated)] sm:w-auto"
+              className="w-full rounded-full border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md px-8 py-4 text-center text-base font-semibold text-[var(--text)] transition-all duration-200 hover:border-[var(--borderStrong)] hover:bg-[var(--surfaceElevated)] hover:-translate-y-0.5 sm:w-auto"
             >
               Browse Rooms
             </Link>
-            <a
-              href="#learn-more"
-              onClick={(e) => {
-                e.preventDefault();
-                const element = document.getElementById("learn-more");
-                if (element) {
-                  element.scrollIntoView({ behavior: "smooth", block: "start" });
-                }
-              }}
-              className="w-full rounded-full border border-[var(--border)] bg-transparent px-8 py-4 text-center text-base font-semibold text-[var(--textSecondary)] transition-all duration-200 hover:border-[var(--primary)]/40 hover:text-[var(--primary)] sm:w-auto"
+            <Link
+              href="/#learn-more"
+              className="w-full rounded-full border border-[var(--border)] bg-transparent px-8 py-4 text-center text-base font-semibold text-[var(--textSecondary)] transition-all duration-200 hover:border-[var(--primary)]/40 hover:text-[var(--primary)] hover:-translate-y-0.5 sm:w-auto"
             >
               Learn More
-            </a>
-            <a
-              href="#about"
-              onClick={(e) => {
-                e.preventDefault();
-                const element = document.getElementById("about");
-                if (element) {
-                  element.scrollIntoView({ behavior: "smooth", block: "start" });
-                }
-              }}
-              className="w-full rounded-full border border-[var(--border)] bg-transparent px-8 py-4 text-center text-base font-semibold text-[var(--textSecondary)] transition-all duration-200 hover:border-[var(--primary)]/40 hover:text-[var(--primary)] sm:w-auto"
+            </Link>
+            <Link
+              href="/#why"
+              className="w-full rounded-full border border-[var(--border)] bg-transparent px-8 py-4 text-center text-base font-semibold text-[var(--textSecondary)] transition-all duration-200 hover:border-[var(--primary)]/40 hover:text-[var(--primary)] hover:-translate-y-0.5 sm:w-auto"
+            >
+              Why RoomEase
+            </Link>
+            <Link
+              href="/#about"
+              className="w-full rounded-full border border-[var(--border)] bg-transparent px-8 py-4 text-center text-base font-semibold text-[var(--textSecondary)] transition-all duration-200 hover:border-[var(--primary)]/40 hover:text-[var(--primary)] hover:-translate-y-0.5 sm:w-auto"
             >
               About Us
-            </a>
+            </Link>
           </div>
         </div>
       </section>
@@ -81,7 +95,8 @@ function HomePageContent() {
       {/* Feature cards */}
       <section
         id="learn-more"
-        className="scroll-mt-20 border-t border-[var(--border)] py-24 sm:py-32"
+        className="scroll-mt-24 border-t border-[var(--border)] py-24 sm:py-32"
+        style={{ scrollMarginTop: `${NAVBAR_OFFSET}px` }}
       >
         <div className="mx-auto max-w-[1200px] px-6 sm:px-8 lg:px-10">
           <div className="mb-16 text-center">
@@ -127,10 +142,47 @@ function HomePageContent() {
         </div>
       </section>
 
+      {/* Why RoomEase / Current vs RoomEase */}
+      <section
+        id="why"
+        className="scroll-mt-24 border-t border-[var(--border)] py-24 sm:py-32"
+        style={{ scrollMarginTop: `${NAVBAR_OFFSET}px` }}
+      >
+        <div className="mx-auto max-w-[1200px] px-6 sm:px-8 lg:px-10">
+          <div className="mb-12 text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-[var(--text)] sm:text-4xl">
+              Why RoomEase
+            </h2>
+            <p className="mt-4 text-lg text-[var(--textSecondary)]">
+              One platform instead of many.
+            </p>
+          </div>
+          <div className="grid gap-8 lg:grid-cols-2">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg">
+              <h3 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">Current system</h3>
+              <ul className="space-y-2 text-[var(--textSecondary)]">
+                <li>Multiple booking portals</li>
+                <li>Email-based requests</li>
+                <li>No unified availability</li>
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-[var(--primary)]/40 bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg">
+              <h3 className="mb-4 text-xl font-semibold tracking-tight text-[var(--primary)]">RoomEase</h3>
+              <ul className="space-y-2 text-[var(--textSecondary)]">
+                <li>Centralized catalog</li>
+                <li>Real-time availability</li>
+                <li>Smart recommendations & approval workflow</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* About section */}
       <section
         id="about"
-        className="scroll-mt-20 border-t border-[var(--border)] py-24 sm:py-32"
+        className="scroll-mt-24 border-t border-[var(--border)] py-24 sm:py-32"
+        style={{ scrollMarginTop: `${NAVBAR_OFFSET}px` }}
       >
         <div className="mx-auto max-w-[1200px] px-6 sm:px-8 lg:px-10">
           <div className="mb-12 text-center">

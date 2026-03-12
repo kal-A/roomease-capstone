@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getBuildingTicketLabel } from "@/lib/buildings";
+import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
 import { AVAndFurnitureSections } from "@/components/AVAndFurnitureSections";
+import { ApprovalBadge } from "@/components/ApprovalBadge";
+import { RoomRating } from "@/components/RoomRating";
 import { useCompare } from "@/lib/compareStore";
 import type { Room } from "@/types/booking";
 
@@ -14,8 +17,6 @@ interface RoomDashboardCardProps {
   hoveredRoomId?: string | number | null;
   onHoverStart?: () => void;
   onHoverEnd?: () => void;
-  /** When true, show "Best Match" badge (e.g. first result in Recommended sort) */
-  isBestMatch?: boolean;
 }
 
 const CAP_MAX = 400;
@@ -26,7 +27,6 @@ export function RoomDashboardCard({
   hoveredRoomId,
   onHoverStart,
   onHoverEnd,
-  isBestMatch = false,
 }: RoomDashboardCardProps) {
   const [quickViewOpen, setQuickViewOpen] = useState(false);
   const { isInCompare, toggleCompare } = useCompare();
@@ -59,6 +59,12 @@ export function RoomDashboardCard({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
+        {/* Approval badge */}
+        {getRoomMetadataWithDefaults(room.id).approvalRequired && (
+          <div className="absolute left-4 top-4 z-20">
+            <ApprovalBadge variant="required" />
+          </div>
+        )}
         {/* 3-dot: absolutely positioned top-right, no layout impact */}
         <div className="absolute top-4 right-4 z-20">
           <div className="relative">
@@ -98,11 +104,6 @@ export function RoomDashboardCard({
         <div className="pr-12">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="truncate text-lg font-semibold tracking-tight text-[var(--text)]">{room.name}</h3>
-            {isBestMatch && (
-              <span className="shrink-0 rounded-md border border-[var(--primary)]/50 bg-[var(--primary)]/12 px-2 py-0.5 text-xs font-medium text-[var(--primary)]">
-                Best Match
-              </span>
-            )}
           </div>
           <span className="mt-2 inline-block rounded-lg border border-[var(--border)] bg-[var(--surfaceElevated)] px-2.5 py-1 text-xs font-medium text-[var(--textSecondary)]" style={{ borderRadius: "var(--radiusSm)" }}>
             {getBuildingTicketLabel(room.building)}
@@ -119,6 +120,9 @@ export function RoomDashboardCard({
               style={{ width: `${Math.min(100, (room.capacity / CAP_MAX) * 100)}%`, borderRadius: "var(--radiusSm)" }}
             />
           </div>
+        </div>
+        <div className="mt-3">
+          <RoomRating roomId={room.id} compact />
         </div>
         <div className="mt-4 space-y-3">
           <AVAndFurnitureSections room={room} animatedBadges />

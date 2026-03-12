@@ -6,6 +6,9 @@ import { getRoomDetailEntries } from "@/data/rooms";
 import { getBuildingTicketLabel } from "@/lib/buildings";
 import { AVAndFurnitureSections } from "@/components/AVAndFurnitureSections";
 import { DatePickerButton } from "@/components/DatePickerButton";
+import { RoomQualityBadges } from "@/components/RoomQualityBadges";
+import { RoomRating } from "@/components/RoomRating";
+import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
 import { useBookings } from "@/lib/bookingsStore";
 import type { Room } from "@/types/booking";
 import { timeToMinutes, formatTimeSlot, formatDuration, timeRangesOverlap, TIME_SLOTS_30MIN } from "@/types/booking";
@@ -119,6 +122,36 @@ export function RoomDetailsModal({
 
           <div className="space-y-3">
             <AVAndFurnitureSections room={room} animatedBadges={false} />
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--textMuted)]">Rating</h3>
+            <RoomRating roomId={room.id} showRateForm />
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--textMuted)]">Room ownership</h3>
+            <ul className="space-y-1.5 text-sm">
+              <li className="flex justify-between gap-2">
+                <span className="text-[var(--textSecondary)]">Room owner</span>
+                <span className="text-[var(--text)]">{getRoomMetadataWithDefaults(room.id).roomOwnerDepartment}</span>
+              </li>
+              <li className="flex justify-between gap-2">
+                <span className="text-[var(--textSecondary)]">Approval required</span>
+                <span className="text-[var(--text)]">{getRoomMetadataWithDefaults(room.id).approvalRequired ? "Yes" : "No"}</span>
+              </li>
+              <li className="flex justify-between gap-2">
+                <span className="text-[var(--textSecondary)]">Admin</span>
+                <a href={`mailto:${getRoomMetadataWithDefaults(room.id).adminContact}`} className="text-[var(--primary)] hover:underline truncate max-w-[180px]">
+                  {getRoomMetadataWithDefaults(room.id).adminContact}
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--textMuted)]">Quality</h3>
+            <RoomQualityBadges roomId={room.id} />
           </div>
 
           <div>

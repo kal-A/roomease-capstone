@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { furnitureLabelsFromCodes } from "@/lib/furniture";
 import { AVAndFurnitureSections } from "@/components/AVAndFurnitureSections";
+import { ApprovalBadge } from "@/components/ApprovalBadge";
 import { useCompare } from "@/lib/compareStore";
 import type { AvNeedKey } from "@/types/booking";
 import type { Room } from "@/types/booking";
@@ -13,6 +14,7 @@ import {
   roomIsStreamingRecordingCapable,
 } from "@/types/booking";
 import { getBuildingTicketLabel } from "@/lib/buildings";
+import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
 
 interface RoomCardProps {
   room: Room;
@@ -124,6 +126,11 @@ export function RoomCard({
       {isBestMatch && (
         <div className="mb-4 inline-flex rounded-full bg-[var(--primary)]/12 border border-[var(--primary)]/30 px-3 py-1 text-sm font-semibold text-[var(--primary)]">
           Best Match
+        </div>
+      )}
+      {getRoomMetadataWithDefaults(room.id).approvalRequired && (
+        <div className="mb-4">
+          <ApprovalBadge variant="required" />
         </div>
       )}
       <div className="mb-4">

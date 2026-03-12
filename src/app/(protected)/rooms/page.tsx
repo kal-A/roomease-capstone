@@ -159,7 +159,6 @@ export default function RoomsDashboardPage() {
                 hoveredRoomId={hoveredRoomId}
                 onHoverStart={handleHoverStart(room)}
                 onHoverEnd={handleHoverEnd}
-                isBestMatch={index === 0 && filters.state.sort === "recommended"}
               />
             </motion.div>
           ))}

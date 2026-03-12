@@ -4,22 +4,25 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import type { Room } from "@/types/booking";
 import { formatDuration, formatTimeSlot } from "@/types/booking";
 import { formatFurniture } from "@/lib/furniture";
+import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
 import {
   roomHasDocumentCamera,
   roomIsElectronicClassroom,
   roomIsStreamingRecordingCapable,
 } from "@/types/booking";
 
-export type BookingStatus = "Confirmed";
+export type BookingStatus = "pending" | "approved" | "denied" | "confirmed";
 
 export interface Booking {
   id: string;
   status: BookingStatus;
+  requiresApproval: boolean;
   confirmationNumber: string;
   createdAtIso: string;
   // Event
   eventName: string;
   organizerName: string;
+  organizerEmail?: string; // for privacy-aware display (e.g. "fva***@uwaterloo.ca")
   eventType: string;
   preferredDate: string; // YYYY-MM-DD
   timeSlot: string; // HH:MM
@@ -30,8 +33,8 @@ export interface Booking {
   roomName: string;
   building: string;
   capacity: number;
-  furnitureLabels: string; // display-only, no codes
-  avBadges: string[]; // display-only, no codes
+  furnitureLabels: string;
+  avBadges: string[];
 }
 
 const STORAGE_KEY = "roomease.bookings.v1";
@@ -78,8 +81,9 @@ export type BookingUpdate = Partial<
 
 interface BookingsContextValue {
   bookings: Booking[];
-  addBooking: (args: { form: any; room: Room }) => Booking;
+  addBooking: (args: { form: any; room: Room; organizerEmail?: string }) => Booking;
   updateBooking: (bookingId: string, updates: BookingUpdate) => void;
+  setBookingStatus: (bookingId: string, status: BookingStatus) => void;
   cancelBooking: (bookingId: string) => void;
 }
 
@@ -97,6 +101,30 @@ export function BookingsProvider({ children }: { children: React.ReactNode }) {
     setSeq(typeof storedSeq === "number" && storedSeq > 0 ? storedSeq : 1);
   }, []);
 
+  // Cross-tab sync: when another tab adds a booking, storage event fires here
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          const next = JSON.parse(e.newValue) as Booking[];
+          if (Array.isArray(next)) setBookings(next);
+        } catch {
+          // ignore
+        }
+      }
+      if (e.key === SEQ_KEY && e.newValue) {
+        try {
+          const n = JSON.parse(e.newValue) as number;
+          if (typeof n === "number" && n > 0) setSeq(n);
+        } catch {
+          // ignore
+        }
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   // Persist
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
@@ -106,17 +134,21 @@ export function BookingsProvider({ children }: { children: React.ReactNode }) {
   }, [seq]);
 
   const addBooking = useCallback(
-    ({ form, room }: { form: any; room: Room }) => {
+    ({ form, room, organizerEmail }: { form: any; room: Room; organizerEmail?: string }) => {
       const { confirmationNumber, nextSeq: n } = nextConfirmationNumber(seq);
       setSeq(n);
       const createdAtIso = new Date().toISOString();
+      const requiresApproval = getRoomMetadataWithDefaults(room.id).approvalRequired === true;
+      const status: BookingStatus = requiresApproval ? "pending" : "confirmed";
       const booking: Booking = {
         id: `${confirmationNumber}-${String(room.id)}`,
-        status: "Confirmed",
+        status,
+        requiresApproval,
         confirmationNumber,
         createdAtIso,
         eventName: String(form.eventName ?? ""),
         organizerName: String(form.organizerName ?? ""),
+        organizerEmail: organizerEmail ?? undefined,
         eventType: String(form.eventType ?? ""),
         preferredDate: String(form.preferredDate ?? ""),
         timeSlot: String(form.timeSlot ?? ""),
@@ -143,8 +175,9 @@ export function BookingsProvider({ children }: { children: React.ReactNode }) {
               ...b,
               ...updates,
               id: b.id,
-              confirmationNumber: b.confirmationNumber,
               status: b.status,
+              requiresApproval: b.requiresApproval,
+              confirmationNumber: b.confirmationNumber,
               createdAtIso: b.createdAtIso,
               roomId: b.roomId,
               roomName: b.roomName,
@@ -158,13 +191,19 @@ export function BookingsProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const setBookingStatus = useCallback((bookingId: string, status: BookingStatus) => {
+    setBookings((prev) =>
+      prev.map((b) => (b.id === bookingId ? { ...b, status } : b))
+    );
+  }, []);
+
   const cancelBooking = useCallback((bookingId: string) => {
     setBookings((prev) => prev.filter((b) => b.id !== bookingId));
   }, []);
 
   const value = useMemo(
-    () => ({ bookings, addBooking, updateBooking, cancelBooking }),
-    [bookings, addBooking, updateBooking, cancelBooking]
+    () => ({ bookings, addBooking, updateBooking, setBookingStatus, cancelBooking }),
+    [bookings, addBooking, updateBooking, setBookingStatus, cancelBooking]
   );
 
   return <BookingsContext.Provider value={value}>{children}</BookingsContext.Provider>;

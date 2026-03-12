@@ -8,8 +8,38 @@ import { DeleteBookingModal } from "@/components/DeleteBookingModal";
 import { EmptyState } from "@/components/EmptyState";
 import { getBuildingTicketLabel } from "@/lib/buildings";
 import { formatTimeSlot } from "@/types/booking";
+import { ApprovalBadge } from "@/components/ApprovalBadge";
 
 type ViewMode = "list" | "calendar";
+
+function statusUi(status: Booking["status"]): { label: string; badgeClass: string; subtitle: string } {
+  switch (status) {
+    case "pending":
+      return {
+        label: "Pending Approval",
+        subtitle: "Awaiting admin review",
+        badgeClass: "border-[var(--borderStrong)] bg-[var(--surfaceElevated)] text-[var(--textSecondary)]",
+      };
+    case "approved":
+      return {
+        label: "Approved",
+        subtitle: "Approved by admin",
+        badgeClass: "border-[var(--successBorder)] bg-[var(--successBg)] text-[var(--success)]",
+      };
+    case "denied":
+      return {
+        label: "Denied",
+        subtitle: "Booking denied",
+        badgeClass: "border-[var(--dangerBorder)] bg-[var(--dangerBg)] text-[var(--danger)]",
+      };
+    default:
+      return {
+        label: "Confirmed",
+        subtitle: "Room reserved successfully",
+        badgeClass: "border-[var(--successBorder)] bg-[var(--successBg)] text-[var(--success)]",
+      };
+  }
+}
 
 function getMonthGrid(year: number, month: number): (number | null)[] {
   const first = new Date(year, month - 1, 1);
@@ -93,13 +123,15 @@ function DayBookingsModal({
                   >
                     View
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => { onEdit(b); onClose(); }}
-                    className="rounded-full border border-[var(--border)] bg-transparent px-3 py-1.5 text-xs font-medium text-[var(--textSecondary)] transition-all duration-200 hover:text-[var(--text)] hover:border-[var(--borderStrong)]"
-                  >
-                    Edit
-                  </button>
+                  {(b.status === "approved" || b.status === "confirmed") && (
+                    <button
+                      type="button"
+                      onClick={() => { onEdit(b); onClose(); }}
+                      className="rounded-full border border-[var(--border)] bg-transparent px-3 py-1.5 text-xs font-medium text-[var(--textSecondary)] transition-all duration-200 hover:text-[var(--text)] hover:border-[var(--borderStrong)]"
+                    >
+                      Edit
+                    </button>
+                  )}
                 </div>
               </div>
             ))
@@ -149,7 +181,14 @@ function BookingDetailsModal({
             </div>
             <div>
               <p className="text-sm text-[var(--textSecondary)]">Status</p>
-              <p className="inline-flex rounded-full border border-[var(--primary)]/50 bg-[var(--primary)]/10 px-3 py-1 text-xs font-medium text-[var(--primary)] mt-1">{booking.status}</p>
+              <p className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium mt-1 ${statusUi(booking.status).badgeClass}`}>
+                {statusUi(booking.status).label}
+              </p>
+              {booking.requiresApproval && booking.status === "pending" && (
+                <div className="mt-2">
+                  <ApprovalBadge variant="pending" />
+                </div>
+              )}
             </div>
             <div>
               <p className="text-sm text-[var(--textSecondary)]">Date</p>
@@ -361,9 +400,10 @@ export default function MyBookingsPage() {
                 <div className="min-w-0">
                   <h3 className="truncate text-lg font-semibold tracking-tight text-[var(--text)]">{b.eventName}</h3>
                   <p className="mt-1 text-sm text-[var(--textSecondary)]">{b.organizerName}</p>
+                  <p className="mt-1 text-xs text-[var(--textMuted)]">{statusUi(b.status).subtitle}</p>
                 </div>
-                <span className="inline-flex rounded-full border border-[var(--primary)]/50 bg-[var(--primary)]/10 px-3 py-1 text-xs font-medium text-[var(--primary)]">
-                  Confirmed
+                <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${statusUi(b.status).badgeClass}`}>
+                  {statusUi(b.status).label}
                 </span>
               </div>
 
@@ -378,6 +418,11 @@ export default function MyBookingsPage() {
                   <span className="text-[var(--textMuted)]">Room:</span> {b.roomName}
                 </p>
                 <p className="text-[var(--textMuted)] font-mono text-xs">Confirmation #{b.confirmationNumber}</p>
+                {b.requiresApproval && b.status === "pending" && (
+                  <div className="pt-1">
+                    <ApprovalBadge variant="pending" />
+                  </div>
+                )}
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
@@ -408,13 +453,15 @@ export default function MyBookingsPage() {
                 >
                   View details
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setEditing(b)}
-                  className="rounded-full border border-[var(--border)] bg-transparent px-4 py-2.5 text-sm font-semibold text-[var(--text)] transition-all duration-200 hover:border-[var(--borderStrong)] hover:bg-[var(--border)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
-                >
-                  Edit
-                </button>
+                {(b.status === "approved" || b.status === "confirmed") && (
+                  <button
+                    type="button"
+                    onClick={() => setEditing(b)}
+                    className="rounded-full border border-[var(--border)] bg-transparent px-4 py-2.5 text-sm font-semibold text-[var(--text)] transition-all duration-200 hover:border-[var(--borderStrong)] hover:bg-[var(--border)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
+                  >
+                    Edit
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setDeleting(b)}

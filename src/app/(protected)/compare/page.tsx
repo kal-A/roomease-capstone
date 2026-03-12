@@ -10,6 +10,10 @@ import { useCompare } from "@/lib/compareStore";
 import { useBookings } from "@/lib/bookingsStore";
 import { AVAndFurnitureSections } from "@/components/AVAndFurnitureSections";
 import { RoomDetailsModal } from "@/components/RoomDetailsModal";
+import { RoomQualityBadges } from "@/components/RoomQualityBadges";
+import { RoomRating } from "@/components/RoomRating";
+import { ApprovalBadge } from "@/components/ApprovalBadge";
+import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
 import type { Room } from "@/types/booking";
 import {
   roomHasDocumentCamera,
@@ -80,7 +84,7 @@ function CompareColumn({
   return (
     <motion.div
       layout
-      className="flex min-w-[280px] max-w-[320px] flex-shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md overflow-hidden shadow-lg hover:shadow-xl transition-all duration-200"
+      className="flex min-w-[280px] max-w-[320px] flex-shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md overflow-hidden shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
@@ -91,9 +95,17 @@ function CompareColumn({
           <h3 className="text-lg font-semibold tracking-tight text-[var(--text)]">{room.name}</h3>
           <p className="mt-1 text-sm text-[var(--textSecondary)]">{getBuildingTicketLabel(room.building)}</p>
         </div>
+        {getRoomMetadataWithDefaults(room.id).approvalRequired && (
+          <div className="mt-3">
+            <ApprovalBadge variant="required" />
+          </div>
+        )}
         <div className="mt-4 flex items-baseline justify-between">
           <span className="text-2xl font-bold text-[var(--primary)]">{room.capacity}</span>
           <span className="text-xs text-[var(--textMuted)]">capacity</span>
+        </div>
+        <div className="mt-3">
+          <RoomRating roomId={room.id} compact />
         </div>
         <Link
           href={`/book?roomId=${encodeURIComponent(String(room.id))}`}
@@ -112,6 +124,10 @@ function CompareColumn({
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Availability</p>
           <p className="mb-1 text-[10px] text-[var(--textMuted)]">{availDate}</p>
           <MiniAvailability room={room} date={availDate} />
+        </section>
+        <section>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Quality</p>
+          <RoomQualityBadges roomId={room.id} />
         </section>
         <section>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Highlights</p>

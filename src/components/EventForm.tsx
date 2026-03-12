@@ -15,6 +15,8 @@ import { FURNITURE_LABELS } from "@/lib/furniture";
 import { BuildingButton } from "./BuildingButton";
 import { DatePickerButton } from "./DatePickerButton";
 import { EventTypeSelector } from "./EventTypeSelector";
+import { ParticipantInvites } from "./ParticipantInvites";
+import { LiveAvailabilityBadge } from "./LiveAvailabilityBadge";
 import { TimeSlotButton } from "./TimeSlotButton";
 import { TimeBar } from "./TimeBar";
 
@@ -27,8 +29,10 @@ interface EventFormProps {
   directBooking?: boolean;
   /** Room ID for availability checking (when booking a specific room) */
   roomId?: string | number;
-  /** Existing bookings for availability checking */
-  existingBookings?: { roomId: string; preferredDate: string; timeSlot: string; durationMinutes: number }[];
+  /** Existing bookings for availability checking (may include organizerName/organizerEmail for privacy display) */
+  existingBookings?: Array<{ roomId: string; preferredDate: string; timeSlot: string; durationMinutes: number; organizerName?: string; organizerEmail?: string }>;
+  /** Viewer email for conflict display (show truncated organizer unless viewer is organizer) */
+  viewerEmail?: string | null;
 }
 
 const defaultFormData: Partial<EventFormData> = {
@@ -45,12 +49,13 @@ const defaultFormData: Partial<EventFormData> = {
   furnitureNeeds: [],
   preferredBuilding: "",
   priorityLevel: "Medium",
+  participantEmails: [],
 };
 
 const CUSTOM_HOURS = [0, 1, 2, 3, 4, 5, 6];
 const CUSTOM_MINUTES = [0, 15, 30, 45];
 
-export function EventForm({ data, onChange, onSubmit, buildings, directBooking, roomId, existingBookings = [] }: EventFormProps) {
+export function EventForm({ data, onChange, onSubmit, buildings, directBooking, roomId, existingBookings = [], viewerEmail }: EventFormProps) {
   const formData = { ...defaultFormData, ...data };
   const durationMin = formData.durationMinutes ?? 60;
   const isPreset = DURATION_PRESETS.some((p) => p.value === durationMin);
@@ -275,18 +280,27 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking, 
         )}
       </div>
 
-      {/* Availability Time Bar (only when booking a specific room) */}
+      {/* Live availability badge + Time Bar (only when booking a specific room and date/time selected) */}
       {directBooking && roomId && formData.preferredDate && formData.timeSlot && (
-        <TimeBar
-          roomId={roomId}
-          date={formData.preferredDate}
-          timeSlot={formData.timeSlot}
-          durationMinutes={formData.durationMinutes ?? 60}
-          existingBookings={existingBookings}
-          onAdjustToNextAvailable={(newTimeSlot) => {
-            onChange({ ...formData, timeSlot: newTimeSlot });
-          }}
-        />
+        <>
+          <div className="flex items-center gap-2">
+            <LiveAvailabilityBadge />
+          </div>
+          <TimeBar
+            roomId={roomId}
+            date={formData.preferredDate}
+            timeSlot={formData.timeSlot}
+            durationMinutes={formData.durationMinutes ?? 60}
+            existingBookings={existingBookings}
+            onAdjustToNextAvailable={(newTimeSlot) => {
+              onChange({ ...formData, timeSlot: newTimeSlot });
+            }}
+            onSelectSlot={(newTimeSlot) => {
+              onChange({ ...formData, timeSlot: newTimeSlot });
+            }}
+            viewerEmail={viewerEmail}
+          />
+        </>
       )}
 
       {/* 4. Group Size */}
@@ -427,6 +441,11 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking, 
         </div>
       </div>
       )}
+
+      <ParticipantInvites
+        value={formData.participantEmails ?? []}
+        onChange={(emails) => set("participantEmails", emails)}
+      />
 
       <div className="pt-4">
         <button

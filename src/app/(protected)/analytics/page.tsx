@@ -24,12 +24,19 @@ const GOLD_DIM = "var(--primary)";
 const AXIS_STROKE = "var(--textMuted)";
 const GRID_STROKE = "var(--border)";
 
+function timeSlotToHour(timeSlot: string): number {
+  const [h] = (timeSlot || "09:00").split(":").map(Number);
+  return h ?? 9;
+}
+
 function useAnalyticsData(bookings: ReturnType<typeof useBookings>["bookings"]) {
   return useMemo(() => {
     const buildingCount: Record<string, number> = {};
     const roomCount: Record<string, { count: number; roomName: string; building: string }> = {};
     const capacityBuckets = { small: 0, medium: 0, large: 0 };
     const byDay: Record<string, number> = {};
+    const byHour: Record<number, number> = {};
+    for (let h = 9; h <= 21; h++) byHour[h] = 0;
 
     for (const b of bookings) {
       buildingCount[b.building] = (buildingCount[b.building] ?? 0) + 1;
@@ -44,6 +51,9 @@ function useAnalyticsData(bookings: ReturnType<typeof useBookings>["bookings"]) 
 
       const day = b.preferredDate;
       byDay[day] = (byDay[day] ?? 0) + 1;
+
+      const hour = timeSlotToHour(b.timeSlot);
+      if (hour >= 9 && hour <= 21) byHour[hour] = (byHour[hour] ?? 0) + 1;
     }
 
     const byBuildingList = Object.entries(buildingCount)
@@ -65,13 +75,23 @@ function useAnalyticsData(bookings: ReturnType<typeof useBookings>["bookings"]) 
     const sortedDays = Object.keys(byDay).sort();
     const trendsData = sortedDays.map((day) => ({ date: day, bookings: byDay[day] }));
 
-    return { byBuildingList, byRoomList, capacityData, trendsData };
+    const peakHoursData = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21].map((h) => {
+      const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
+      const ampm = h < 12 ? "AM" : "PM";
+      return {
+        hour: `${String(h).padStart(2, "0")}:00`,
+        label: `${h12} ${ampm}`,
+        bookings: byHour[h] ?? 0,
+      };
+    });
+
+    return { byBuildingList, byRoomList, capacityData, trendsData, peakHoursData };
   }, [bookings]);
 }
 
 export default function AnalyticsPage() {
   const { bookings } = useBookings();
-  const { byBuildingList, byRoomList, capacityData, trendsData } = useAnalyticsData(bookings);
+  const { byBuildingList, byRoomList, capacityData, trendsData, peakHoursData } = useAnalyticsData(bookings);
 
   return (
     <div className="mx-auto max-w-[1200px] px-6 py-12 sm:px-8 sm:py-16 lg:px-10">
@@ -233,12 +253,53 @@ export default function AnalyticsPage() {
             </div>
           </motion.section>
 
-          {/* Section 4 — Booking Trends (line chart) */}
+          {/* Section 4 — Peak booking hours */}
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.25 }}
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
+          >
+            <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">Peak Booking Hours</h2>
+            <div className="min-h-[200px] flex-1 flex items-stretch">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={peakHoursData}
+                  margin={{ top: 0, right: 8, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    stroke={AXIS_STROKE}
+                    tick={{ fill: "var(--textSecondary)", fontSize: 10 }}
+                  />
+                  <YAxis stroke={AXIS_STROKE} tick={{ fill: "var(--textMuted)", fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "var(--surfaceElevated)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "8px",
+                      color: "var(--text)",
+                    }}
+                    formatter={(value) => [value ?? 0, "Bookings"]}
+                    labelFormatter={(_, payload) => payload?.[0]?.payload?.hour ?? ""}
+                  />
+                  <Bar dataKey="bookings" radius={[4, 4, 0, 0]} animationDuration={600} animationBegin={150}>
+                    {peakHoursData.map((_, i) => (
+                      <Cell key={i} fill={GOLD} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </motion.section>
+
+          {/* Section 5 — Booking Trends (line chart) */}
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.3 }}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0 md:col-span-2"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">Booking Trends</h2>
             <div className="min-h-[200px] flex-1 flex items-stretch">
