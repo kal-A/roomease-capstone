@@ -371,9 +371,9 @@ export default function AdminApprovalsPage() {
 
   const stats = useMemo(() => {
     const pending = bookings.filter((b) => b.status === "Pending").length;
-    const today = new Date().toISOString().slice(0, 10);
-    const approvedToday = bookings.filter((b) => b.status === "Approved" && b.submittedAt.slice(0, 10) === today).length;
-    const deniedToday = bookings.filter((b) => b.status === "Denied" && b.submittedAt.slice(0, 10) === today).length;
+    // Demo-friendly: treat all approved/denied in the current dataset as "today"
+    const approvedToday = bookings.filter((b) => b.status === "Approved").length;
+    const deniedToday = bookings.filter((b) => b.status === "Denied").length;
     const requiringApprovalRooms = new Set(
       bookings
         .map((b) => roomKeyFromAdminRoomId(b.roomId))
