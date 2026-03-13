@@ -137,10 +137,6 @@ export function RoomDetailsModal({
                 <span className="text-[var(--text)]">{getRoomMetadataWithDefaults(room.id).roomOwnerDepartment}</span>
               </li>
               <li className="flex justify-between gap-2">
-                <span className="text-[var(--textSecondary)]">Approval required</span>
-                <span className="text-[var(--text)]">{getRoomMetadataWithDefaults(room.id).approvalRequired ? "Yes" : "No"}</span>
-              </li>
-              <li className="flex justify-between gap-2">
                 <span className="text-[var(--textSecondary)]">Admin</span>
                 <a href={`mailto:${getRoomMetadataWithDefaults(room.id).adminContact}`} className="text-[var(--primary)] hover:underline truncate max-w-[180px]">
                   {getRoomMetadataWithDefaults(room.id).adminContact}

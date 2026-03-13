@@ -19,6 +19,8 @@ import { ParticipantInvites } from "./ParticipantInvites";
 import { LiveAvailabilityBadge } from "./LiveAvailabilityBadge";
 import { TimeSlotButton } from "./TimeSlotButton";
 import { TimeBar } from "./TimeBar";
+import { AutocompleteInput } from "./AutocompleteInput";
+import { getClubNames } from "@/lib/clubs";
 
 interface EventFormProps {
   data: EventFormData;
@@ -65,6 +67,7 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking, 
   const avNeeds = formData.avNeeds ?? [];
   const furnitureNeeds = formData.furnitureNeeds ?? [];
   const furnitureOptions = Object.values(FURNITURE_LABELS);
+  const clubNames = getClubNames();
 
   const set = (
     key: keyof EventFormData,
@@ -147,14 +150,15 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking, 
           <label htmlFor="organizerName" className={labelClass}>
             Organizer / Club Name <span className="text-[var(--primary)]">*</span>
           </label>
-          <input
+          <AutocompleteInput
             id="organizerName"
-            type="text"
             value={formData.organizerName ?? ""}
-            onChange={(e) => set("organizerName", e.target.value)}
-            className={inputClass}
+            onChange={(v) => set("organizerName", v)}
+            options={clubNames}
             placeholder="e.g. CS Student Society"
-            required
+            inputClassName={inputClass}
+            helperText="Select a UW club or enter a custom organizer name"
+            showExactMatchHint
           />
         </div>
       </div>

@@ -4,9 +4,7 @@ import Link from "next/link";
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getBuildingTicketLabel } from "@/lib/buildings";
-import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
 import { AVAndFurnitureSections } from "@/components/AVAndFurnitureSections";
-import { ApprovalBadge } from "@/components/ApprovalBadge";
 import { RoomRating } from "@/components/RoomRating";
 import { useCompare } from "@/lib/compareStore";
 import type { Room } from "@/types/booking";
@@ -59,12 +57,6 @@ export function RoomDashboardCard({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        {/* Approval badge */}
-        {getRoomMetadataWithDefaults(room.id).approvalRequired && (
-          <div className="absolute left-4 top-4 z-20">
-            <ApprovalBadge variant="required" />
-          </div>
-        )}
         {/* 3-dot: absolutely positioned top-right, no layout impact */}
         <div className="absolute top-4 right-4 z-20">
           <div className="relative">

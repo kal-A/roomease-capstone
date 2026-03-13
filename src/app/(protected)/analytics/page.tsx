@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import { EmptyState } from "@/components/EmptyState";
 import {
@@ -18,25 +19,25 @@ import {
 } from "recharts";
 import { useBookings } from "@/lib/bookingsStore";
 import { getBuildingTicketLabel } from "@/lib/buildings";
+import {
+  getScopedBookings,
+  getTopClubs,
+  getTopRooms,
+  getTopBuildings,
+  getPeakHours,
+  getTopTimeSlots,
+  getTrendsByClub,
+} from "@/lib/bookingAnalytics";
 
 const GOLD = "var(--primary)";
-const GOLD_DIM = "var(--primary)";
 const AXIS_STROKE = "var(--textMuted)";
 const GRID_STROKE = "var(--border)";
 
-function timeSlotToHour(timeSlot: string): number {
-  const [h] = (timeSlot || "09:00").split(":").map(Number);
-  return h ?? 9;
-}
-
-function useAnalyticsData(bookings: ReturnType<typeof useBookings>["bookings"]) {
+function useCoreAnalytics(bookings: ReturnType<typeof useBookings>["bookings"]) {
   return useMemo(() => {
     const buildingCount: Record<string, number> = {};
     const roomCount: Record<string, { count: number; roomName: string; building: string }> = {};
     const capacityBuckets = { small: 0, medium: 0, large: 0 };
-    const byDay: Record<string, number> = {};
-    const byHour: Record<number, number> = {};
-    for (let h = 9; h <= 21; h++) byHour[h] = 0;
 
     for (const b of bookings) {
       buildingCount[b.building] = (buildingCount[b.building] ?? 0) + 1;
@@ -48,12 +49,6 @@ function useAnalyticsData(bookings: ReturnType<typeof useBookings>["bookings"]) 
       if (b.capacity <= 50) capacityBuckets.small += 1;
       else if (b.capacity <= 150) capacityBuckets.medium += 1;
       else capacityBuckets.large += 1;
-
-      const day = b.preferredDate;
-      byDay[day] = (byDay[day] ?? 0) + 1;
-
-      const hour = timeSlotToHour(b.timeSlot);
-      if (hour >= 9 && hour <= 21) byHour[hour] = (byHour[hour] ?? 0) + 1;
     }
 
     const byBuildingList = Object.entries(buildingCount)
@@ -72,39 +67,75 @@ function useAnalyticsData(bookings: ReturnType<typeof useBookings>["bookings"]) 
       { name: "Large (150+)", value: capacityBuckets.large, fill: "var(--primary)" },
     ];
 
-    const sortedDays = Object.keys(byDay).sort();
-    const trendsData = sortedDays.map((day) => ({ date: day, bookings: byDay[day] }));
-
-    const peakHoursData = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21].map((h) => {
-      const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
-      const ampm = h < 12 ? "AM" : "PM";
-      return {
-        hour: `${String(h).padStart(2, "0")}:00`,
-        label: `${h12} ${ampm}`,
-        bookings: byHour[h] ?? 0,
-      };
-    });
-
-    return { byBuildingList, byRoomList, capacityData, trendsData, peakHoursData };
+    return { byBuildingList, byRoomList, capacityData };
   }, [bookings]);
 }
 
 export default function AnalyticsPage() {
   const { bookings } = useBookings();
-  const { byBuildingList, byRoomList, capacityData, trendsData, peakHoursData } = useAnalyticsData(bookings);
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.isAdmin ?? false;
+  const email = session?.user?.email ?? null;
+
+  const [mode, setMode] = useState<"global" | "user">(() => (isAdmin ? "global" : "user"));
+
+  const scopedBookings = useMemo(
+    () => getScopedBookings(bookings, mode === "global" ? "global" : "user", email),
+    [bookings, mode, email]
+  );
+
+  const { byBuildingList, byRoomList, capacityData } = useCoreAnalytics(scopedBookings);
+  const peakHoursData = useMemo(() => getPeakHours(scopedBookings), [scopedBookings]);
+  const topClubs = useMemo(() => getTopClubs(scopedBookings, 8), [scopedBookings]);
+  const myTopRooms = useMemo(() => getTopRooms(scopedBookings, 6), [scopedBookings]);
+  const myTopBuildings = useMemo(() => getTopBuildings(scopedBookings, 6), [scopedBookings]);
+  const topSlots = useMemo(() => getTopTimeSlots(scopedBookings, 5), [scopedBookings]);
+  const trendsData = useMemo(() => getTrendsByClub(scopedBookings), [scopedBookings]);
+
+  const hasData = scopedBookings.length > 0;
 
   return (
     <div className="mx-auto max-w-[1200px] px-6 py-12 sm:px-8 sm:py-16 lg:px-10">
-      <div className="mb-10">
-        <h1 className="text-4xl font-bold tracking-tight text-[var(--text)] sm:text-5xl" style={{ letterSpacing: "-0.02em" }}>
-          Booking Analytics
-        </h1>
-        <p className="mt-2 text-lg text-[var(--textSecondary)]">
-          Most booked buildings, popular rooms, capacity distribution, and trends.
-        </p>
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight text-[var(--text)] sm:text-5xl" style={{ letterSpacing: "-0.02em" }}>
+            Booking Analytics
+          </h1>
+          <p className="mt-2 text-lg text-[var(--textSecondary)]">
+            {mode === "global" && isAdmin
+              ? "Global usage across all rooms and organizers."
+              : "Your own booking patterns across rooms, buildings, and organizers."}
+          </p>
+        </div>
+        {isAdmin && (
+          <div className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-1 py-1 text-xs font-medium text-[var(--textSecondary)] shadow-sm">
+            <button
+              type="button"
+              onClick={() => setMode("global")}
+              className={`px-4 py-1.5 rounded-full transition-all ${
+                mode === "global"
+                  ? "bg-[var(--primary)] text-[var(--primaryText)] shadow-sm"
+                  : "text-[var(--textSecondary)]"
+              }`}
+            >
+              Global Analytics
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("user")}
+              className={`px-4 py-1.5 rounded-full transition-all ${
+                mode === "user"
+                  ? "bg-[var(--primary)] text-[var(--primaryText)] shadow-sm"
+                  : "text-[var(--textSecondary)]"
+              }`}
+            >
+              My Analytics
+            </button>
+          </div>
+        )}
       </div>
 
-      {bookings.length === 0 ? (
+      {!hasData ? (
         <EmptyState
           icon={
             <svg className="h-12 w-12 text-[var(--textMuted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2} aria-hidden>
@@ -112,17 +143,27 @@ export default function AnalyticsPage() {
             </svg>
           }
           title="No analytics yet"
-          description="Booking analytics will appear once you have at least one booking."
-          suggestion="Book a room to see most booked buildings, popular rooms, and trends."
+          description={
+            mode === "global" && isAdmin
+              ? "Global analytics will appear once there are bookings in the system."
+              : "Your analytics will appear once you have at least one booking."
+          }
+          suggestion="Book a room to see buildings, rooms, and organizer trends."
           action={
-            <Link href="/book" className="inline-flex rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold shadow-md transition-all duration-200 hover:bg-[var(--primaryHover)] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
-              style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}>
+            <Link
+              href="/book"
+              className="inline-flex rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold shadow-md transition-all duration-200 hover:bg-[var(--primaryHover)] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
+              style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}
+            >
               Book a Room
             </Link>
           }
         />
       ) : (
-        <div className="grid gap-8 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 auto-rows-fr" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))" }}>
+        <div
+          className="grid gap-8 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 auto-rows-fr"
+          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))" }}
+        >
           {/* Section 1 — Most Booked Buildings (bar chart) */}
           <motion.section
             initial={{ opacity: 0, y: 12 }}
@@ -131,9 +172,13 @@ export default function AnalyticsPage() {
             className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
           >
             <div className="mb-6 flex items-center gap-2">
-              <h2 className="text-xl font-semibold tracking-tight text-[var(--text)]">Most Booked Buildings</h2>
+              <h2 className="text-xl font-semibold tracking-tight text-[var(--text)]">
+                {mode === "global" ? "Most Booked Buildings" : "My Most Used Buildings"}
+              </h2>
               {byBuildingList.length > 0 && (
-                <span className="rounded-md border border-[var(--primary)]/40 bg-[var(--primary)]/10 px-2 py-0.5 text-xs font-medium text-[var(--primary)]">Most Popular</span>
+                <span className="rounded-md border border-[var(--primary)]/40 bg-[var(--primary)]/10 px-2 py-0.5 text-xs font-medium text-[var(--primary)]">
+                  Most Popular
+                </span>
               )}
             </div>
             <div className="min-h-[200px] flex-1 flex items-stretch">
@@ -182,7 +227,9 @@ export default function AnalyticsPage() {
             transition={{ duration: 0.4, delay: 0.1 }}
             className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
           >
-            <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">Most Booked Rooms</h2>
+            <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">
+              {mode === "global" ? "Most Booked Rooms" : "My Most Booked Rooms"}
+            </h2>
             <ul className="space-y-3">
               {byRoomList.map(({ roomId, roomName, building, count }, i) => (
                 <motion.li
@@ -197,7 +244,9 @@ export default function AnalyticsPage() {
                     <p className="text-sm text-[var(--textSecondary)]">{getBuildingTicketLabel(building)}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
-                    <span className="text-sm text-[var(--textSecondary)]">{count} booking{count !== 1 ? "s" : ""}</span>
+                    <span className="text-sm text-[var(--textSecondary)]">
+                      {count} booking{count !== 1 ? "s" : ""}
+                    </span>
                     <Link
                       href={`/book?roomId=${encodeURIComponent(roomId)}`}
                       className="rounded-full bg-[var(--primary)] px-4 py-2 text-sm font-semibold transition-all duration-200 hover:bg-[var(--primaryHover)] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
@@ -211,7 +260,7 @@ export default function AnalyticsPage() {
             </ul>
           </motion.section>
 
-          {/* Section 3 — Capacity Distribution (histogram) */}
+          {/* Section 3 — Capacity Distribution */}
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -221,10 +270,7 @@ export default function AnalyticsPage() {
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">Capacity Distribution</h2>
             <div className="min-h-[200px] flex-1 flex items-stretch">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={capacityData}
-                  margin={{ top: 0, right: 8, left: 0, bottom: 0 }}
-                >
+                <BarChart data={capacityData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
                   <XAxis
                     dataKey="name"
@@ -232,17 +278,17 @@ export default function AnalyticsPage() {
                     tick={{ fill: "var(--textSecondary)", fontSize: 11 }}
                   />
                   <YAxis stroke={AXIS_STROKE} tick={{ fill: "var(--textMuted)", fontSize: 11 }} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "var(--surfaceElevated)",
-                        border: "1px solid var(--border)",
-                        borderRadius: "8px",
-                        color: "var(--text)",
-                      }}
-                      labelStyle={{ color: "var(--text)", fontWeight: 600 }}
-                      itemStyle={{ color: "var(--text)" }}
-                      formatter={(value) => [value ?? 0, "Bookings"]}
-                    />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "var(--surfaceElevated)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "8px",
+                      color: "var(--text)",
+                    }}
+                    labelStyle={{ color: "var(--text)", fontWeight: 600 }}
+                    itemStyle={{ color: "var(--text)" }}
+                    formatter={(value) => [value ?? 0, "Bookings"]}
+                  />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]} animationDuration={600} animationBegin={100}>
                     {capacityData.map((entry, i) => (
                       <Cell key={i} fill={entry.fill} />
@@ -260,13 +306,12 @@ export default function AnalyticsPage() {
             transition={{ duration: 0.4, delay: 0.25 }}
             className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
           >
-            <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">Peak Booking Hours</h2>
+            <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">
+              {mode === "global" ? "Peak Booking Hours" : "My Most Common Time Slots"}
+            </h2>
             <div className="min-h-[200px] flex-1 flex items-stretch">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={peakHoursData}
-                  margin={{ top: 0, right: 8, left: 0, bottom: 0 }}
-                >
+                <BarChart data={peakHoursData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
                   <XAxis
                     dataKey="label"
@@ -294,17 +339,55 @@ export default function AnalyticsPage() {
             </div>
           </motion.section>
 
-          {/* Section 5 — Booking Trends (line chart) */}
+          {/* Section 5 — Top organizers / clubs (user-focused) */}
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.3 }}
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
+          >
+            <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">
+              {mode === "global" ? "Top Clubs / Organizers" : "My Most Used Organizer Names"}
+            </h2>
+            {topClubs.length === 0 ? (
+              <p className="text-sm text-[var(--textSecondary)]">No organizer data yet.</p>
+            ) : (
+              <ul className="space-y-3">
+                {topClubs.map((c, i) => (
+                  <li
+                    key={c.key}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--primary)]/10 text-xs font-semibold text-[var(--primary)]">
+                        {i + 1}
+                      </span>
+                      <p className="truncate text-sm font-medium text-[var(--text)]">{c.label}</p>
+                    </div>
+                    <span className="shrink-0 text-xs text-[var(--textSecondary)]">
+                      {c.count} booking{c.count !== 1 ? "s" : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </motion.section>
+
+          {/* Section 6 — Booking trends (user/global) */}
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.35 }}
             className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0 md:col-span-2"
           >
-            <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">Booking Trends</h2>
+            <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">
+              {mode === "global" ? "Booking Trends Over Time" : "My Booking Activity Over Time"}
+            </h2>
             <div className="min-h-[200px] flex-1 flex items-stretch">
               {trendsData.length === 0 ? (
-                <p className="flex h-full items-center justify-center text-sm text-[var(--textSecondary)]">No date data yet</p>
+                <p className="flex h-full items-center justify-center text-sm text-[var(--textSecondary)]">
+                  No date data yet.
+                </p>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={trendsData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
@@ -348,3 +431,4 @@ export default function AnalyticsPage() {
     </div>
   );
 }
+

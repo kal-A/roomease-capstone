@@ -23,8 +23,6 @@ import { ConfirmationPage } from "@/components/ConfirmationPage";
 import { EventForm } from "@/components/EventForm";
 import { ProgressStepper } from "@/components/ProgressStepper";
 import { RoomRecommendation } from "@/components/RoomRecommendation";
-import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
-import { ApprovalBadge } from "@/components/ApprovalBadge";
 
 const TOTAL_STEPS_FULL = 3;
 const TOTAL_STEPS_DIRECT = 2;
@@ -328,11 +326,6 @@ function BookPageContent() {
                     <p className="text-xs font-semibold uppercase tracking-wide text-[var(--primary)]">Selected Room</p>
                     <p className="mt-1 text-lg font-semibold tracking-tight text-[var(--text)]">{lockedRoom.name}</p>
                     <p className="mt-1 text-sm text-[var(--textSecondary)]">Capacity {lockedRoom.capacity}</p>
-                    {getRoomMetadataWithDefaults(lockedRoom.id).approvalRequired && (
-                      <div className="mt-3">
-                        <ApprovalBadge variant="required" />
-                      </div>
-                    )}
                   </div>
                   <Link
                     href="/rooms"
