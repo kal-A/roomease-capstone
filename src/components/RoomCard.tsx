@@ -13,6 +13,7 @@ import {
   roomIsStreamingRecordingCapable,
 } from "@/types/booking";
 import { getBuildingTicketLabel } from "@/lib/buildings";
+import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
 
 interface RoomCardProps {
   room: Room;

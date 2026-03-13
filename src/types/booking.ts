@@ -42,6 +42,8 @@ export interface EventFormData {
   furnitureNeeds: string[];
   preferredBuilding?: string;
   priorityLevel?: string;
+  /** Optional participant emails (invitees); demo only, no real email */
+  participantEmails?: string[];
 }
 
 export interface BookedSlot {

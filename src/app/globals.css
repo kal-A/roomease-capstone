@@ -225,7 +225,7 @@ textarea:focus-visible {
   transition: box-shadow var(--transition-base), transform var(--transition-base), border-color var(--transition-base);
 }
 .card-elevated:hover {
-  box-shadow: var(--shadowCardHover);
+  box-shadow: var(--shadowCardHover), 0 0 0 1px var(--borderStrong), 0 0 24px -4px var(--primaryGlow);
   transform: translateY(calc(-1 * var(--liftHover)));
   border-color: var(--borderStrong);
 }
@@ -240,6 +240,16 @@ textarea:focus-visible {
 /* Button press — subtle scale */
 button:not(:disabled):active {
   transform: scale(0.98);
+}
+
+/* Subtle pulse for available time blocks */
+@keyframes pulse-soft {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
 }
 
 /* Pulse glow animation for availability */

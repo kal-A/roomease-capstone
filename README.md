@@ -1,5 +1,37 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Authentication (NextAuth + Microsoft Entra ID)
+
+RoomEase uses **NextAuth** with **Microsoft Entra ID (Azure AD)**. Access is restricted to **@uwaterloo.ca** accounts only.
+
+### Azure App Registration
+
+1. In [Azure Portal](https://portal.azure.com) go to **Microsoft Entra ID** → **App registrations** → **New registration**.
+2. Name the app (e.g. "RoomEase"), choose **Accounts in this organizational directory only**, set Redirect URI:
+   - **Web** → `http://localhost:3000/api/auth/callback/azure-ad` (for production, add `https://your-domain/api/auth/callback/azure-ad`).
+3. After creation: **Overview** → copy **Application (client) ID** and **Directory (tenant) ID**.
+4. **Certificates & secrets** → **New client secret** → copy the secret value (once only).
+
+### Environment variables
+
+Copy `.env.example` to `.env.local` and set:
+
+| Variable | Description |
+|----------|-------------|
+| `NEXTAUTH_URL` | App URL, e.g. `http://localhost:3000` |
+| `NEXTAUTH_SECRET` | Random secret; generate with `openssl rand -base64 32` |
+| `AZURE_AD_CLIENT_ID` | Application (client) ID from app registration |
+| `AZURE_AD_CLIENT_SECRET` | Client secret value |
+| `AZURE_AD_TENANT_ID` | Directory (tenant) ID (or leave empty for `common`) |
+
+Do **not** commit `.env.local` or any file containing secrets (`.env*` is gitignored).
+
+### Domain restriction
+
+Only users with an email ending in **@uwaterloo.ca** can sign in. Others are rejected and redirected to a friendly error page asking them to use their University of Waterloo account.
+
+---
+
 ## Getting Started
 
 1. **Regenerate room data** from the Excel file (required for room list and building picker to match your data):
@@ -13,6 +45,8 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
    ```
 
    Open [http://localhost:3000](http://localhost:3000). Use **`/book`** for the booking flow.
+
+   If you see Turbopack or route structure errors, clean and restart: `rm -rf .next && yarn dev`.
 
 ### Room data (Excel → JSON)
 
