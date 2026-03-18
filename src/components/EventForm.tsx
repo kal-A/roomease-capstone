@@ -21,6 +21,7 @@ import { TimeSlotButton } from "./TimeSlotButton";
 import { TimeBar } from "./TimeBar";
 import { AutocompleteInput } from "./AutocompleteInput";
 import { getClubNames } from "@/lib/clubs";
+import type { TimeBarBooking } from "./TimeBar";
 
 interface EventFormProps {
   data: EventFormData;
@@ -31,8 +32,8 @@ interface EventFormProps {
   directBooking?: boolean;
   /** Room ID for availability checking (when booking a specific room) */
   roomId?: string | number;
-  /** Existing bookings for availability checking (may include organizerName/organizerEmail for privacy display) */
-  existingBookings?: Array<{ roomId: string; preferredDate: string; timeSlot: string; durationMinutes: number; organizerName?: string; organizerEmail?: string }>;
+  /** Existing bookings for availability checking (live data from /api/bookings/by-room) */
+  existingBookings?: TimeBarBooking[];
   /** Viewer email for conflict display (show truncated organizer unless viewer is organizer) */
   viewerEmail?: string | null;
 }

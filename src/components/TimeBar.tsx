@@ -6,11 +6,14 @@ import { TIME_SLOTS_30MIN, timeToMinutes, timeRangesOverlap, formatTimeSlot } fr
 
 export interface TimeBarBooking {
   roomId: string;
-  preferredDate: string;
-  timeSlot: string;
-  durationMinutes: number;
-  organizerName?: string;
-  organizerEmail?: string;
+  startTimeIsoUtc: string;
+  endTimeIsoUtc: string;
+  organizerName?: string; // club / organizer
+  bookerName?: string | null;
+  bookerEmail?: string;
+  status?: string;
+  eventName?: string | null;
+  isMine?: boolean;
 }
 
 interface TimeBarProps {
@@ -43,17 +46,23 @@ function minutesToSlot(minutes: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-function truncateEmailForDisplay(email: string | undefined, isViewer: boolean): string {
-  if (!email) return "—";
-  if (isViewer) return email;
-  const [local] = email.split("@");
-  if (!local || local.length <= 3) return "***@***";
-  return `${local.slice(0, 3)}***@${email.includes("@") ? email.split("@")[1] : "uwaterloo.ca"}`;
+function localMinutesFromIso(isoUtc: string): number {
+  const d = new Date(isoUtc);
+  return d.getHours() * 60 + d.getMinutes();
 }
 
-function getFirstName(name: string | undefined): string {
-  if (!name || !name.trim()) return "—";
-  return name.trim().split(/\s+/)[0] ?? "—";
+function toLocalYmd(isoUtc: string): string {
+  const d = new Date(isoUtc);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function displayBookerNameOrEmail(args: { bookerName?: string | null; bookerEmail?: string }): string {
+  const n = (args.bookerName ?? "").toString().trim();
+  if (n) return n.split(/\s+/)[0] ?? n;
+  return args.bookerEmail ? args.bookerEmail : "—";
 }
 
 export function TimeBar({
@@ -66,22 +75,23 @@ export function TimeBar({
   onSelectSlot,
   viewerEmail,
 }: TimeBarProps) {
-  const { selectedRange, bookedRanges, roomBookings, nextAvailableBlock, alternativeSlots, hasConflict } = useMemo(() => {
+  const { selectedRange, bookedRanges, roomBookings, nextAvailableBlock, alternativeSlots, hasConflict, conflictIsMine } = useMemo(() => {
     if (!date || !timeSlot || !durationMinutes) {
-      return { selectedRange: null, bookedRanges: [], roomBookings: [], nextAvailableBlock: null, alternativeSlots: [], hasConflict: false };
+      return { selectedRange: null, bookedRanges: [], roomBookings: [], nextAvailableBlock: null, alternativeSlots: [], hasConflict: false, conflictIsMine: false };
     }
 
     const selectedStart = timeToMinutes(timeSlot);
     const selectedEnd = selectedStart + durationMinutes;
     const selectedRange = { start: selectedStart, end: selectedEnd };
 
-    const roomBookings = existingBookings.filter(
-      (b) => String(b.roomId) === String(roomId) && b.preferredDate === date
-    );
+    const roomBookings = existingBookings
+      .filter((b) => String(b.roomId) === String(roomId))
+      // keep only bookings that land on the selected local date
+      .filter((b) => toLocalYmd(b.startTimeIsoUtc) === date);
 
     const bookedRanges = roomBookings.map((b) => {
-      const start = timeToMinutes(b.timeSlot);
-      const end = start + (b.durationMinutes ?? 60);
+      const start = localMinutesFromIso(b.startTimeIsoUtc);
+      const end = localMinutesFromIso(b.endTimeIsoUtc);
       return { start, end };
     });
 
@@ -89,17 +99,28 @@ export function TimeBar({
       timeRangesOverlap(booked.start, booked.end - booked.start, selectedStart, durationMinutes)
     );
 
+    const conflictIsMine =
+      hasConflict &&
+      roomBookings.some((b) => {
+        const start = localMinutesFromIso(b.startTimeIsoUtc);
+        const end = localMinutesFromIso(b.endTimeIsoUtc);
+        const overlaps = timeRangesOverlap(start, end - start, selectedStart, durationMinutes);
+        return overlaps && b.isMine === true;
+      });
+
     let nextAvailableBlock: { start: number; end: number; slot: string } | null = null;
     const alternativeSlots: { start: number; end: number; slot: string; label?: string }[] = [];
     if (hasConflict) {
-      const sortedBookings = [...roomBookings].sort((a, b) => timeToMinutes(a.timeSlot) - timeToMinutes(b.timeSlot));
+      const sortedBookings = [...roomBookings].sort(
+        (a, b) => localMinutesFromIso(a.startTimeIsoUtc) - localMinutesFromIso(b.startTimeIsoUtc)
+      );
       for (const slot of TIME_SLOTS_30MIN) {
         const slotStartM = timeToMinutes(slot.value);
         if (slotStartM + durationMinutes > DAY_END) break;
         const conflictsWithBlock = sortedBookings.some((b) => {
-          const bStart = timeToMinutes(b.timeSlot);
-          const bDuration = b.durationMinutes ?? 60;
-          return timeRangesOverlap(bStart, bDuration, slotStartM, durationMinutes);
+          const bStart = localMinutesFromIso(b.startTimeIsoUtc);
+          const bEnd = localMinutesFromIso(b.endTimeIsoUtc);
+          return timeRangesOverlap(bStart, bEnd - bStart, slotStartM, durationMinutes);
         });
         if (!conflictsWithBlock) {
           const block = { start: slotStartM, end: slotStartM + durationMinutes, slot: slot.value };
@@ -109,7 +130,7 @@ export function TimeBar({
       }
     }
 
-    return { selectedRange, bookedRanges, roomBookings, nextAvailableBlock, alternativeSlots, hasConflict };
+    return { selectedRange, bookedRanges, roomBookings, nextAvailableBlock, alternativeSlots, hasConflict, conflictIsMine };
   }, [roomId, date, timeSlot, durationMinutes, existingBookings]);
 
   if (!selectedRange) {
@@ -341,35 +362,41 @@ export function TimeBar({
 
       {/* Conflict: clear state, next available, Shift +30m, Next slot, privacy-aware booked list */}
       {hasConflict && (
-        <div className="mt-3 space-y-3 rounded-xl border border-[var(--danger)]/50 bg-[var(--dangerBg)]/30 p-4">
+        <div className="mt-3 space-y-3 rounded-xl border border-[var(--danger)]/60 bg-[var(--dangerBg)] p-4">
           <div className="flex items-start gap-2 text-xs text-[var(--danger)] font-medium">
             <svg className="h-4 w-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
             <span>
-              Your requested time: {formatTimeLabel(selectedRange.start)}–{formatTimeLabel(selectedRange.end)} is unavailable
+              {conflictIsMine
+                ? "You already have this room booked for that time."
+                : "This room is already booked for that time."}
             </span>
           </div>
+          <p className="text-xs text-[var(--textSecondary)]">
+            Try a different time slot or choose the next available opening.
+          </p>
           {/* Overlapping bookings (privacy: organizer first name + truncated email unless viewer is organizer) */}
           {roomBookings.some((b) => {
-            const start = timeToMinutes(b.timeSlot);
-            const dur = b.durationMinutes ?? 60;
-            return timeRangesOverlap(start, dur, selectedRange.start, durationMinutes);
+            const start = localMinutesFromIso(b.startTimeIsoUtc);
+            const end = localMinutesFromIso(b.endTimeIsoUtc);
+            return timeRangesOverlap(start, end - start, selectedRange.start, durationMinutes);
           }) && (
             <div className="space-y-1">
               {roomBookings
                 .filter((b) => {
-                  const start = timeToMinutes(b.timeSlot);
-                  const dur = b.durationMinutes ?? 60;
-                  return timeRangesOverlap(start, dur, selectedRange.start, durationMinutes);
+                  const start = localMinutesFromIso(b.startTimeIsoUtc);
+                  const end = localMinutesFromIso(b.endTimeIsoUtc);
+                  return timeRangesOverlap(start, end - start, selectedRange.start, durationMinutes);
                 })
                 .map((b, i) => {
-                  const isViewer = !!viewerEmail && b.organizerEmail === viewerEmail;
-                  const displayName = getFirstName(b.organizerName);
-                  const displayEmail = truncateEmailForDisplay(b.organizerEmail, isViewer);
+                  const label = b.isMine ? "Booked by you" : "Booked";
+                  const who = b.isMine
+                    ? (b.eventName ? `${b.organizerName ?? "Unknown Organizer"} · ${b.eventName}` : (b.organizerName ?? "Unknown Organizer"))
+                    : `${b.organizerName ?? "Unknown Organizer"} · ${displayBookerNameOrEmail({ bookerName: b.bookerName, bookerEmail: b.bookerEmail })}`;
                   return (
                     <p key={i} className="text-xs text-[var(--textSecondary)]">
-                      Booked · Organizer: {displayName} · {displayEmail}
+                      {label} · {who}{b.status ? ` · ${String(b.status).toUpperCase()}` : ""}
                     </p>
                   );
                 })}
@@ -387,9 +414,9 @@ export function TimeBar({
               const clampedStart = Math.min(shiftStart, DAY_END - durationMinutes);
               const shiftSlot = minutesToSlot(clampedStart);
               const wouldConflict = roomBookings.some((b) => {
-                const start = timeToMinutes(b.timeSlot);
-                const dur = b.durationMinutes ?? 60;
-                return timeRangesOverlap(start, dur, clampedStart, durationMinutes);
+                const start = localMinutesFromIso(b.startTimeIsoUtc);
+                const end = localMinutesFromIso(b.endTimeIsoUtc);
+                return timeRangesOverlap(start, end - start, clampedStart, durationMinutes);
               });
               if (clampedStart < DAY_START || wouldConflict) return null;
               return (

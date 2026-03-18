@@ -23,6 +23,8 @@ import { ConfirmationPage } from "@/components/ConfirmationPage";
 import { EventForm } from "@/components/EventForm";
 import { ProgressStepper } from "@/components/ProgressStepper";
 import { RoomRecommendation } from "@/components/RoomRecommendation";
+import type { TimeBarBooking } from "@/components/TimeBar";
+import { buildBookingRange } from "@/lib/bookingTime";
 
 const TOTAL_STEPS_FULL = 3;
 const TOTAL_STEPS_DIRECT = 2;
@@ -143,14 +145,6 @@ const initialFormData: EventFormData = {
 
 const buildingsList = getBuildingsFromRooms(ROOMS);
 
-function toIsoRange(args: { preferredDate: string; timeSlot: string; durationMinutes: number }): { startTime: string; endTime: string } {
-  const { preferredDate, timeSlot, durationMinutes } = args;
-  const start = new Date(`${preferredDate}T${timeSlot}:00`);
-  const startMs = start.getTime();
-  const endMs = startMs + Math.max(0, durationMinutes) * 60 * 1000;
-  return { startTime: new Date(startMs).toISOString(), endTime: new Date(endMs).toISOString() };
-}
-
 function BookPageContent() {
   const searchParams = useSearchParams();
   const roomIdFromUrl = searchParams.get("roomId") ?? "";
@@ -196,6 +190,7 @@ function BookPageContent() {
 
   const totalSteps = lockedRoom ? TOTAL_STEPS_DIRECT : TOTAL_STEPS_FULL;
   const { data: session } = useSession();
+  const [liveRoomBookings, setLiveRoomBookings] = useState<TimeBarBooking[]>([]);
   const existingBookings = useMemo(
     () =>
       bookings.map((b) => ({
@@ -214,6 +209,44 @@ function BookPageContent() {
     const blocked = getBlockedAsBookings(lockedRoom.id, formData.preferredDate, lockedRoom.building);
     return [...existingBookings, ...blocked];
   }, [existingBookings, lockedRoom, formData.preferredDate]);
+
+  // Live availability source of truth for direct booking timeline.
+  useEffect(() => {
+    if (!lockedRoom || !formData.preferredDate) {
+      setLiveRoomBookings([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const params = new URLSearchParams({
+          roomId: String(lockedRoom.id),
+          date: String(formData.preferredDate),
+        });
+        const res = await fetch(`/api/bookings/by-room?${params.toString()}`);
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) return;
+        const rows = Array.isArray((json as any)?.bookings) ? (json as any).bookings : [];
+        const mapped: TimeBarBooking[] = rows.map((b: any) => ({
+          roomId: String(b.room_id),
+          startTimeIsoUtc: String(b.start_time),
+          endTimeIsoUtc: String(b.end_time),
+          organizerName: String(b.organizer_name ?? ""),
+          bookerName: b.booker_name ?? null,
+          bookerEmail: String(b.booker_email ?? ""),
+          status: String(b.status ?? ""),
+          eventName: b.event_name ?? null,
+          isMine: Boolean(b.is_mine),
+        }));
+        if (!cancelled) setLiveRoomBookings(mapped);
+      } catch (e) {
+        console.error("LIVE AVAILABILITY FETCH ERROR", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [lockedRoom, formData.preferredDate]);
 
   const handleFormSubmit = useCallback(() => {
     setDoubleBookingError(null);
@@ -264,7 +297,7 @@ function BookPageContent() {
   const handleConfirmBooking = useCallback(async () => {
     if (!pendingBooking) return;
     try {
-      const { startTime, endTime } = toIsoRange({
+      const { startTimeIsoUtc, endTimeIsoUtc } = buildBookingRange({
         preferredDate: pendingBooking.formData.preferredDate ?? "",
         timeSlot: pendingBooking.formData.timeSlot ?? "",
         durationMinutes: pendingBooking.formData.durationMinutes ?? 60,
@@ -278,22 +311,29 @@ function BookPageContent() {
           eventName: String(pendingBooking.formData.eventName ?? ""),
           organizerName: String(pendingBooking.formData.organizerName ?? ""),
           groupSize: Number(pendingBooking.formData.groupSize ?? 0),
-          startTime,
-          endTime,
+          startTime: startTimeIsoUtc,
+          endTime: endTimeIsoUtc,
         }),
       });
 
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
         const msg = String((json as any)?.error ?? "Booking failed.");
-        setDoubleBookingError(res.status === 400 ? msg : "Something went wrong creating your booking. Please try again.");
+        const isDirect = !!lockedRoom && String(pendingBooking.room.id) === String(lockedRoom.id);
+        if (isDirect) {
+          setDirectBookingError(res.status === 400 ? msg : "Something went wrong creating your booking. Please try again.");
+        } else {
+          setDoubleBookingError(res.status === 400 ? msg : "Something went wrong creating your booking. Please try again.");
+        }
         setShowConfirmModal(false);
         setPendingBooking(null);
         return;
       }
     } catch (e) {
       console.error("BOOKING CREATE API ERROR", e);
-      setDoubleBookingError("Something went wrong creating your booking. Please try again.");
+      const isDirect = !!lockedRoom && String(pendingBooking.room.id) === String(lockedRoom.id);
+      if (isDirect) setDirectBookingError("Something went wrong creating your booking. Please try again.");
+      else setDoubleBookingError("Something went wrong creating your booking. Please try again.");
       setShowConfirmModal(false);
       setPendingBooking(null);
       return;
@@ -307,9 +347,39 @@ function BookPageContent() {
     setConfirmationNumber(booking.confirmationNumber);
     setSelectedRoom(pendingBooking.room);
     setDoubleBookingError(null);
+    setDirectBookingError(null);
     setShowConfirmModal(false);
     setPendingBooking(null);
     setStep(3);
+
+    // Refresh live availability immediately after a successful booking.
+    if (lockedRoom && pendingBooking.formData.preferredDate) {
+      try {
+        const params = new URLSearchParams({
+          roomId: String(lockedRoom.id),
+          date: String(pendingBooking.formData.preferredDate),
+        });
+        const res = await fetch(`/api/bookings/by-room?${params.toString()}`);
+        const json = await res.json().catch(() => ({}));
+        if (res.ok) {
+          const rows = Array.isArray((json as any)?.bookings) ? (json as any).bookings : [];
+          const mapped: TimeBarBooking[] = rows.map((b: any) => ({
+            roomId: String(b.room_id),
+            startTimeIsoUtc: String(b.start_time),
+            endTimeIsoUtc: String(b.end_time),
+            organizerName: String(b.organizer_name ?? ""),
+            bookerName: b.booker_name ?? null,
+            bookerEmail: String(b.booker_email ?? ""),
+            status: String(b.status ?? ""),
+            eventName: b.event_name ?? null,
+            isMine: Boolean(b.is_mine),
+          }));
+          setLiveRoomBookings(mapped);
+        }
+      } catch {
+        // ignore
+      }
+    }
   }, [pendingBooking, addBooking, session?.user?.email]);
 
   const handleBack = useCallback(() => {
@@ -336,7 +406,7 @@ function BookPageContent() {
     }
     setSelectedRoom(lockedRoom);
     try {
-      const { startTime, endTime } = toIsoRange({
+      const { startTimeIsoUtc, endTimeIsoUtc } = buildBookingRange({
         preferredDate: formData.preferredDate ?? "",
         timeSlot: formData.timeSlot ?? "",
         durationMinutes: formData.durationMinutes ?? 60,
@@ -350,8 +420,8 @@ function BookPageContent() {
           eventName: String(formData.eventName ?? ""),
           organizerName: String(formData.organizerName ?? ""),
           groupSize: Number(formData.groupSize ?? 0),
-          startTime,
-          endTime,
+          startTime: startTimeIsoUtc,
+          endTime: endTimeIsoUtc,
         }),
       });
 
@@ -437,7 +507,7 @@ function BookPageContent() {
               buildings={buildingsList}
               directBooking={!!lockedRoom}
               roomId={lockedRoom?.id}
-              existingBookings={existingBookingsWithBlocked}
+              existingBookings={lockedRoom ? liveRoomBookings : []}
               viewerEmail={session?.user?.email ?? null}
             />
           </motion.div>
