@@ -2,14 +2,28 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Suspense, useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const NAVBAR_OFFSET = 72; // sticky header height for scroll offset
 
 function HomePageContent() {
   const pathname = usePathname();
   const hasScrolledRef = useRef(false);
+  const { data: session } = useSession();
+  const [activeSection, setActiveSection] = useState<"learn-more" | "why" | "about" | null>(null);
+  const [showSectionNav, setShowSectionNav] = useState(false);
+
+  const userFirstName = (() => {
+    const fullName = session?.user?.name ?? "";
+    const trimmed = fullName.trim();
+    if (!trimmed) return null;
+    const first = trimmed.split(/\s+/)[0];
+    if (!first) return null;
+    return first.charAt(0).toUpperCase() + first.slice(1);
+  })();
 
   // Scroll to hash on mount (e.g. user came from /rooms via /#why)
   useEffect(() => {
@@ -45,51 +59,148 @@ function HomePageContent() {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, [pathname]);
 
+  // Floating section nav: track sections + show after hero
+  useEffect(() => {
+    if (pathname !== "/") return;
+    const sectionIds: Array<"learn-more" | "why" | "about"> = ["learn-more", "why", "about"];
+    const observer = new IntersectionObserver(
+      (entries) => {
+        let current: "learn-more" | "why" | "about" | null = null;
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const id = entry.target.id as "learn-more" | "why" | "about";
+            current = id;
+            break;
+          }
+        }
+        if (current) {
+          setActiveSection(current);
+        }
+      },
+      {
+        root: null,
+        threshold: 0.3,
+      }
+    );
+
+    sectionIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+
+    const onScroll = () => {
+      const y = window.scrollY || window.pageYOffset;
+      setShowSectionNav(y > 240);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, [pathname]);
+
+  const handleSectionClick = (id: "learn-more" | "why" | "about") => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const y = el.getBoundingClientRect().top + window.scrollY - NAVBAR_OFFSET;
+    window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+  };
+
   return (
     <div className="relative">
       {/* Hero */}
       <section className="mx-auto max-w-[1200px] px-6 pt-24 pb-32 sm:px-8 sm:pt-32 sm:pb-40 lg:px-10">
-        <div className="mx-auto max-w-3xl text-center">
-          <h1 className="text-5xl font-bold tracking-tight text-[var(--text)] sm:text-6xl lg:text-7xl" style={{ letterSpacing: "-0.02em" }}>
+        <motion.div
+          className="mx-auto max-w-3xl text-center"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          <AnimatePresence>
+            {userFirstName && (
+              <motion.p
+                key="greeting"
+                className="mb-4 text-sm font-medium uppercase tracking-[0.2em] text-[var(--textSecondary)]"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.4, delay: 0.05 }}
+              >
+                Welcome back, {userFirstName}
+              </motion.p>
+            )}
+          </AnimatePresence>
+
+          <motion.h1
+            className="text-5xl font-bold tracking-tight text-[var(--text)] sm:text-6xl lg:text-7xl"
+            style={{ letterSpacing: "-0.02em" }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
+          >
             Intelligent Room Booking
-          </h1>
-          <p className="mt-6 text-xl leading-relaxed text-[var(--textSecondary)] sm:text-2xl">
+          </motion.h1>
+          <motion.p
+            className="mt-6 text-xl leading-relaxed text-[var(--textSecondary)] sm:text-2xl"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.18, ease: "easeOut" }}
+          >
             Automated, policy-aware room recommendations in seconds.
-          </p>
-          <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row flex-wrap">
+          </motion.p>
+
+          {/* Row 1: primary CTAs */}
+          <motion.div
+            className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.24, ease: "easeOut" }}
+          >
             <Link
               href="/book"
-              className="w-full rounded-full bg-[var(--primary)] px-8 py-4 text-center text-base font-semibold shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] hover:-translate-y-0.5 hover:shadow-xl sm:w-auto"
+              className="w-full rounded-full bg-[var(--primary)] px-8 py-4 text-center text-base font-semibold shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] hover:-translate-y-0.5 hover:shadow-xl sm:w-auto sm:min-w-[180px]"
               style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}
             >
               Start Booking
             </Link>
             <Link
               href="/rooms"
-              className="w-full rounded-full border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md px-8 py-4 text-center text-base font-semibold text-[var(--text)] transition-all duration-200 hover:border-[var(--borderStrong)] hover:bg-[var(--surfaceElevated)] hover:-translate-y-0.5 sm:w-auto"
+              className="w-full rounded-full border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md px-8 py-4 text-center text-base font-semibold text-[var(--text)] transition-all duration-200 hover:border-[var(--borderStrong)] hover:bg-[var(--surfaceElevated)] hover:-translate-y-0.5 sm:w-auto sm:min-w-[180px]"
             >
               Browse Rooms
             </Link>
-            <Link
-              href="/#learn-more"
-              className="w-full rounded-full border border-[var(--border)] bg-transparent px-8 py-4 text-center text-base font-semibold text-[var(--textSecondary)] transition-all duration-200 hover:border-[var(--primary)]/40 hover:text-[var(--primary)] hover:-translate-y-0.5 sm:w-auto"
-            >
-              Learn More
-            </Link>
-            <Link
-              href="/#why"
-              className="w-full rounded-full border border-[var(--border)] bg-transparent px-8 py-4 text-center text-base font-semibold text-[var(--textSecondary)] transition-all duration-200 hover:border-[var(--primary)]/40 hover:text-[var(--primary)] hover:-translate-y-0.5 sm:w-auto"
-            >
-              Why RoomEase
-            </Link>
-            <Link
-              href="/#about"
-              className="w-full rounded-full border border-[var(--border)] bg-transparent px-8 py-4 text-center text-base font-semibold text-[var(--textSecondary)] transition-all duration-200 hover:border-[var(--primary)]/40 hover:text-[var(--primary)] hover:-translate-y-0.5 sm:w-auto"
-            >
-              About Us
-            </Link>
-          </div>
-        </div>
+          </motion.div>
+
+          {/* Row 2: secondary in-page navigation */}
+          <motion.div
+            className="mt-6 flex flex-col items-center justify-center gap-3 sm:mt-8"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3, ease: "easeOut" }}
+          >
+            <div className="inline-flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
+              <Link
+                href="/#learn-more"
+                className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-transparent px-6 py-3 text-sm font-medium text-[var(--textSecondary)] transition-all duration-200 hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
+              >
+                Learn More
+              </Link>
+              <Link
+                href="/#why"
+                className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-transparent px-6 py-3 text-sm font-medium text-[var(--textSecondary)] transition-all duration-200 hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
+              >
+                Why RoomEase
+              </Link>
+              <Link
+                href="/#about"
+                className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-transparent px-6 py-3 text-sm font-medium text-[var(--textSecondary)] transition-all duration-200 hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
+              >
+                About Us
+              </Link>
+            </div>
+          </motion.div>
+        </motion.div>
       </section>
 
       {/* Feature cards */}
@@ -244,6 +355,44 @@ function HomePageContent() {
           </div>
         </div>
       </section>
+
+      {/* Floating section navigation */}
+      <AnimatePresence>
+        {showSectionNav && (
+          <motion.nav
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="fixed inset-x-0 bottom-6 z-30 flex justify-center px-4 pointer-events-none"
+            aria-label="Homepage section navigation"
+          >
+            <div className="pointer-events-auto inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surfaceElevated)]/90 px-2 py-1 shadow-[0_10px_30px_rgba(0,0,0,0.25)] backdrop-blur-xl">
+              {[
+                { id: "learn-more", label: "Learn More" },
+                { id: "why", label: "Why RoomEase" },
+                { id: "about", label: "About Us" },
+              ].map((item) => {
+                const isActive = activeSection === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleSectionClick(item.id as "learn-more" | "why" | "about")}
+                    className={`rounded-full px-3.5 py-1.5 text-xs sm:text-[13px] font-medium transition-all duration-200 ${
+                      isActive
+                        ? "bg-[var(--primary)] text-[var(--primaryText)] shadow-sm"
+                        : "text-[var(--textSecondary)] hover:bg-[var(--surface)]"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.nav>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

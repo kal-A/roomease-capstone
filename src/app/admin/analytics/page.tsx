@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   BarChart,
@@ -18,12 +19,19 @@ import {
 import { EmptyState } from "@/components/EmptyState";
 import { useBookings } from "@/lib/bookingsStore";
 import { getBuildingTicketLabel } from "@/lib/buildings";
+import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
 import {
   getTopClubs,
   getTopRooms,
   getTopClubsPerRoom,
   getBuildingsByClub,
   getTrendsByClub,
+  filterBookingsByDateRange,
+  getApprovalFunnel,
+  getActiveClubs,
+  getAvgBookingsPerDay,
+  getPeakBookingDayAndHour,
+  type DateRangePreset,
 } from "@/lib/bookingAnalytics";
 
 const GOLD = "var(--primary)";
@@ -34,52 +42,74 @@ export default function AdminAnalyticsPage() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.isAdmin ?? false;
   const { bookings } = useBookings();
+  const router = useRouter();
 
-  const topClubs = useMemo(() => getTopClubs(bookings, 12), [bookings]);
-  const topRooms = useMemo(() => getTopRooms(bookings, 10), [bookings]);
-  const perRoomClubs = useMemo(() => getTopClubsPerRoom(bookings, 3), [bookings]);
+  // Hard protection: redirect if not admin.
+  if (session && !isAdmin) {
+    router.replace("/");
+    return null;
+  }
+
+  const [range, setRange] = useState<DateRangePreset>("30d");
+  const rangedBookings = useMemo(() => filterBookingsByDateRange(bookings, range), [bookings, range]);
+
+  const topClubs = useMemo(() => getTopClubs(rangedBookings, 12), [rangedBookings]);
+  const topRooms = useMemo(() => getTopRooms(rangedBookings, 10), [rangedBookings]);
+  const perRoomClubs = useMemo(() => getTopClubsPerRoom(rangedBookings, 3), [rangedBookings]);
 
   const [selectedClubKey, setSelectedClubKey] = useState<string>(() =>
     topClubs.length > 0 ? topClubs[0].key : ""
   );
 
   const buildingByClub = useMemo(
-    () => (selectedClubKey ? getBuildingsByClub(bookings, selectedClubKey) : []),
-    [bookings, selectedClubKey]
+    () => (selectedClubKey ? getBuildingsByClub(rangedBookings, selectedClubKey) : []),
+    [rangedBookings, selectedClubKey]
   );
   const clubTrends = useMemo(
-    () => (selectedClubKey ? getTrendsByClub(bookings, selectedClubKey) : []),
-    [bookings, selectedClubKey]
+    () => (selectedClubKey ? getTrendsByClub(rangedBookings, selectedClubKey) : []),
+    [rangedBookings, selectedClubKey]
   );
 
-  if (!isAdmin) {
-    return (
-      <div className="mx-auto max-w-[960px] px-6 py-12 sm:px-8 sm:py-16 lg:px-10">
-        <EmptyState
-          icon={
-            <svg className="h-12 w-12 text-[var(--textMuted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2} aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.34 4.34L9.22 3.22A8.96 8.96 0 0112 3c4.97 0 9 4.03 9 9 0 1.16-.22 2.27-.63 3.29m-2.11 3.3A8.96 8.96 0 0112 21c-4.97 0-9-4.03-9-9 0-1.73.49-3.35 1.34-4.72M4 4l16 16" />
-            </svg>
-          }
-          title="Admin analytics only"
-          description="Club-level insights are only available to admin users."
-          suggestion="Sign in with an admin account to view global analytics."
-        />
-      </div>
-    );
-  }
-
-  const hasData = bookings.length > 0;
+  const hasData = rangedBookings.length > 0;
+  const funnel = useMemo(() => getApprovalFunnel(rangedBookings), [rangedBookings]);
+  const roomsRequiringApprovalCount = useMemo(() => {
+    const set = new Set<string>();
+    for (const b of rangedBookings) {
+      const key = String(b.roomId);
+      if (getRoomMetadataWithDefaults(key).approvalRequired) set.add(key);
+    }
+    return set.size;
+  }, [rangedBookings]);
+  const activeClubsCount = useMemo(() => getActiveClubs(rangedBookings), [rangedBookings]);
+  const avgPerDay = useMemo(() => getAvgBookingsPerDay(rangedBookings), [rangedBookings]);
+  const peak = useMemo(() => getPeakBookingDayAndHour(rangedBookings), [rangedBookings]);
 
   return (
     <div className="mx-auto max-w-[1200px] px-6 py-12 sm:px-8 sm:py-16 lg:px-10">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold tracking-tight text-[var(--text)] sm:text-5xl" style={{ letterSpacing: "-0.02em" }}>
-          Admin Club Insights
-        </h1>
-        <p className="mt-2 text-lg text-[var(--textSecondary)]">
-          Global booking analytics across all clubs, rooms, and buildings.
-        </p>
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight text-[var(--text)] sm:text-5xl" style={{ letterSpacing: "-0.02em" }}>
+            Admin Analytics
+          </h1>
+          <p className="mt-2 text-lg text-[var(--textSecondary)]">
+            Operational insights across all bookings, approvals, clubs, rooms, and buildings.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-[var(--textSecondary)]">Date range</label>
+            <select
+              value={range}
+              onChange={(e) => setRange(e.target.value as DateRangePreset)}
+              className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--text)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
+            >
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+              <option value="90d">Last 90 days</option>
+              <option value="all">All time</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {!hasData ? (
@@ -98,11 +128,39 @@ export default function AdminAnalyticsPage() {
           className="grid gap-8 grid-cols-1 md:grid-cols-2 auto-rows-fr"
           style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))" }}
         >
-          {/* A) Top clubs by bookings */}
+          {/* Overview summary cards */}
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-6 shadow-lg md:col-span-2"
+          >
+            <div className="flex flex-wrap gap-4">
+              {[
+                { label: "Total bookings", value: rangedBookings.length },
+                { label: "Pending approvals", value: funnel.pending },
+                { label: "Rooms requiring approval", value: roomsRequiringApprovalCount },
+                { label: "Active clubs", value: activeClubsCount },
+                { label: "Avg bookings / day", value: avgPerDay.toFixed(1) },
+                { label: "Peak day", value: peak.peakDay ?? "—" },
+                { label: "Peak hour", value: peak.peakHour ?? "—" },
+              ].map((m) => (
+                <div
+                  key={m.label}
+                  className="flex-1 min-w-[180px] rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-5 py-4 transition-all duration-200 hover:border-[var(--borderStrong)]"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">{m.label}</p>
+                  <p className="mt-2 text-2xl font-bold tracking-tight text-[var(--text)]">{m.value as any}</p>
+                </div>
+              ))}
+            </div>
+          </motion.section>
+
+          {/* A) Top clubs by bookings */}
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.05 }}
             className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">
@@ -134,7 +192,7 @@ export default function AdminAnalyticsPage() {
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.05 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
             className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">
@@ -168,7 +226,7 @@ export default function AdminAnalyticsPage() {
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
+            transition={{ duration: 0.4, delay: 0.15 }}
             className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col md:col-span-2"
           >
             <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">
@@ -217,7 +275,7 @@ export default function AdminAnalyticsPage() {
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.15 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
             className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col"
           >
             <div className="mb-4 flex items-center justify-between gap-3">
@@ -293,7 +351,7 @@ export default function AdminAnalyticsPage() {
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
+            transition={{ duration: 0.4, delay: 0.25 }}
             className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col"
           >
             <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">
@@ -343,6 +401,36 @@ export default function AdminAnalyticsPage() {
                   </LineChart>
                 </ResponsiveContainer>
               )}
+            </div>
+          </motion.section>
+
+          {/* H) Approval funnel */}
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col md:col-span-2"
+          >
+            <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">Approval Funnel</h2>
+            <p className="mb-6 text-sm text-[var(--textSecondary)]">
+              Operational view of booking request status distribution.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-5">
+              {[
+                { label: "Submitted", value: funnel.submitted },
+                { label: "Pending", value: funnel.pending },
+                { label: "Approved", value: funnel.approved },
+                { label: "Denied", value: funnel.denied },
+                { label: "Confirmed", value: funnel.confirmed },
+              ].map((s) => (
+                <div
+                  key={s.label}
+                  className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-5 py-4"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">{s.label}</p>
+                  <p className="mt-2 text-2xl font-bold tracking-tight text-[var(--text)]">{s.value}</p>
+                </div>
+              ))}
             </div>
           </motion.section>
         </div>
