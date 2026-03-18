@@ -1,19 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { Booking } from "@/lib/bookingsStore";
+import type { Booking, BookingStatus } from "@/lib/bookingsStore";
 import { useBookings } from "@/lib/bookingsStore";
 import { timeRangesOverlap, timeToMinutes } from "@/types/booking";
 import { DURATION_PRESETS, TIME_SLOTS_30MIN } from "@/types/booking";
+import { buildBookingRange } from "@/lib/bookingTime";
 
 interface EditBookingModalProps {
   booking: Booking;
   isOpen: boolean;
   onClose: () => void;
+  onSaveSuccess?: () => Promise<void> | void;
+  onDeleteSuccess?: () => Promise<void> | void;
 }
 
-export function EditBookingModal({ booking, isOpen, onClose }: EditBookingModalProps) {
-  const { bookings, updateBooking, cancelBooking } = useBookings();
+export function EditBookingModal({ booking, isOpen, onClose, onSaveSuccess, onDeleteSuccess }: EditBookingModalProps) {
+  const { bookings, updateBooking, cancelBooking, setBookingStatus } = useBookings();
   const [eventName, setEventName] = useState(booking.eventName);
   const [organizerName, setOrganizerName] = useState(booking.organizerName);
   const [preferredDate, setPreferredDate] = useState(booking.preferredDate);
@@ -21,6 +24,9 @@ export function EditBookingModal({ booking, isOpen, onClose }: EditBookingModalP
   const [durationMinutes, setDurationMinutes] = useState(booking.durationMinutes);
   const [groupSize, setGroupSize] = useState(booking.groupSize);
   const [conflictError, setConflictError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -31,49 +37,112 @@ export function EditBookingModal({ booking, isOpen, onClose }: EditBookingModalP
       setDurationMinutes(booking.durationMinutes);
       setGroupSize(booking.groupSize);
       setConflictError(null);
+      setSaveError(null);
+      setIsSaving(false);
+      setIsDeleting(false);
     }
   }, [isOpen, booking]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
+      if (isSaving) return;
       setConflictError(null);
+      setSaveError(null);
 
-      const others = bookings.filter((b) => b.id !== booking.id);
-      const startM = timeToMinutes(timeSlot);
-      const overlap = others.some((b) => {
-        if (b.roomId !== booking.roomId || b.preferredDate !== preferredDate) return false;
-        const existingStart = timeToMinutes(b.timeSlot);
-        const existingDuration = b.durationMinutes ?? 60;
-        return timeRangesOverlap(existingStart, existingDuration, startM, durationMinutes);
-      });
+      (async () => {
+        setIsSaving(true);
+        try {
+          const blockedStatuses = ["pending", "approved", "confirmed"];
+          const others = bookings.filter((b) => b.id !== booking.id && blockedStatuses.includes(b.status));
 
-      if (overlap) {
-        setConflictError("This time conflicts with an existing booking.");
-        return;
-      }
+          const startM = timeToMinutes(timeSlot);
+          const overlap = others.some((b) => {
+            if (b.roomId !== booking.roomId || b.preferredDate !== preferredDate) return false;
+            const existingStart = timeToMinutes(b.timeSlot);
+            const existingDuration = b.durationMinutes ?? 60;
+            return timeRangesOverlap(existingStart, existingDuration, startM, durationMinutes);
+          });
 
-      updateBooking(booking.id, {
-        eventName,
-        organizerName,
-        preferredDate,
-        timeSlot,
-        durationMinutes,
-        groupSize,
-      });
-      onClose();
+          if (overlap) {
+            setConflictError("This room is already booked for that time.");
+            return;
+          }
+
+          if (!booking.backendId) {
+            setSaveError("This booking cannot be edited (missing backend id).");
+            return;
+          }
+
+          const { startTimeIsoUtc, endTimeIsoUtc } = buildBookingRange({
+            preferredDate,
+            timeSlot,
+            durationMinutes,
+          });
+
+          const res = await fetch(`/api/bookings/${booking.backendId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              roomId: booking.roomId,
+              eventName,
+              organizerName,
+              groupSize: Number(groupSize),
+              startTime: startTimeIsoUtc,
+              endTime: endTimeIsoUtc,
+            }),
+          });
+
+          if (!res.ok) {
+            const json = (await res.json().catch(() => ({}))) as { error?: unknown };
+            const msg = typeof json.error === "string" ? json.error : "Update failed.";
+            if (res.status === 400) setConflictError(msg);
+            else setSaveError(msg);
+            return;
+          }
+
+          const json = (await res.json().catch(() => ({}))) as { booking?: { status?: string } };
+
+          updateBooking(booking.id, {
+            eventName,
+            organizerName,
+            preferredDate,
+            timeSlot,
+            durationMinutes,
+            groupSize,
+          });
+
+          const updatedStatusRaw = String(json?.booking?.status ?? booking.status).toLowerCase().trim();
+          const allowed: BookingStatus[] = ["pending", "approved", "denied", "confirmed"];
+          const updatedStatus: BookingStatus = allowed.includes(updatedStatusRaw as BookingStatus)
+            ? (updatedStatusRaw as BookingStatus)
+            : booking.status;
+          setBookingStatus(booking.id, updatedStatus);
+
+          await onSaveSuccess?.();
+          onClose();
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Could not update booking.";
+          setSaveError(msg);
+        } finally {
+          setIsSaving(false);
+        }
+      })();
     },
     [
       booking,
       bookings,
+      isSaving,
       durationMinutes,
       eventName,
       groupSize,
       onClose,
+      onSaveSuccess,
       organizerName,
       preferredDate,
       timeSlot,
       updateBooking,
+      setBookingStatus,
     ]
   );
 
@@ -98,10 +167,33 @@ export function EditBookingModal({ booking, isOpen, onClose }: EditBookingModalP
           <div className="flex items-center gap-1">
             <button
               type="button"
+              disabled={isDeleting}
               onClick={() => {
                 if (window.confirm("Delete this booking?")) {
-                  cancelBooking(booking.id);
-                  onClose();
+                  (async () => {
+                    setIsDeleting(true);
+                    if (booking.backendId) {
+                      try {
+                        const res = await fetch(`/api/bookings/${booking.backendId}`, { method: "DELETE" });
+                        if (!res.ok) {
+                          const json = (await res.json().catch(() => ({}))) as { error?: unknown };
+                          const msg = typeof json.error === "string" ? json.error : "Delete failed.";
+                          setSaveError(msg);
+                          return;
+                        }
+
+                        await onDeleteSuccess?.();
+                        onClose();
+                      } finally {
+                        setIsDeleting(false);
+                      }
+                    } else {
+                      // Demo fallback: no backend id means we only have local state.
+                      cancelBooking(booking.id);
+                      setIsDeleting(false);
+                      onClose();
+                    }
+                  })();
                 }
               }}
               className="rounded-lg p-2 text-[var(--textSecondary)] transition hover:bg-[var(--danger)]/20 hover:text-[var(--danger)] focus:outline-none focus:ring-2 focus:ring-[var(--danger)]/50"
@@ -132,6 +224,12 @@ export function EditBookingModal({ booking, isOpen, onClose }: EditBookingModalP
           {conflictError && (
             <div className="rounded-xl border-2 border-[#FFD100]/60 bg-[#FFD100]/10 p-3" role="alert">
               <p className="text-sm font-semibold text-[#FFD100]">{conflictError}</p>
+            </div>
+          )}
+
+          {saveError && (
+            <div className="rounded-xl border-2 border-[var(--dangerBorder)] bg-[var(--dangerBg)] p-3" role="alert">
+              <p className="text-sm font-semibold text-[var(--danger)]">{saveError}</p>
             </div>
           )}
 
@@ -208,9 +306,12 @@ export function EditBookingModal({ booking, isOpen, onClose }: EditBookingModalP
           <div className="flex gap-3 pt-2">
             <button
               type="submit"
-              className="flex-1 rounded-xl bg-[#FFD100] py-3 font-semibold text-black shadow-lg transition hover:bg-[#e6bc00] focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:ring-offset-2 focus:ring-offset-[#1A1A1A]"
+              disabled={isSaving}
+              className={`flex-1 rounded-xl bg-[#FFD100] py-3 font-semibold text-black shadow-lg transition hover:bg-[#e6bc00] focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:ring-offset-2 focus:ring-offset-[#1A1A1A] ${
+                isSaving ? "cursor-not-allowed opacity-70" : ""
+              }`}
             >
-              Save changes
+              {isSaving ? "Saving..." : "Save changes"}
             </button>
             <button
               type="button"

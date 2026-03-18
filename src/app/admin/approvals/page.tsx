@@ -1,8 +1,6 @@
 "use client";
 
-// Demo-only admin approvals page. Replace mock data with real API later.
-
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { EmptyState } from "@/components/EmptyState";
 import { ApprovalBadge } from "@/components/ApprovalBadge";
@@ -14,7 +12,7 @@ import {
   removeBlock,
 } from "@/lib/blockingStore";
 
-type AdminStatus = "Pending" | "Approved" | "Denied";
+type AdminStatus = "Pending" | "Approved" | "Denied" | "Confirmed";
 
 interface AdminBooking {
   id: string;
@@ -37,7 +35,8 @@ interface AdminBooking {
   conflictSummary: string;
 }
 
-const MOCK_BOOKINGS: AdminBooking[] = [
+const MOCK_BOOKINGS: AdminBooking[] = [];
+/*
   {
     id: "1",
     status: "Pending",
@@ -239,6 +238,7 @@ const MOCK_BOOKINGS: AdminBooking[] = [
     conflictSummary: "Conflicts with custodial schedule (needs coordination).",
   },
 ];
+*/
 
 type StatusFilter = "all" | "pending" | "approved" | "denied";
 type SortOption = "newest" | "oldest";
@@ -315,6 +315,11 @@ function statusStyles(status: AdminStatus): { badge: string } {
         badge:
           "inline-flex items-center gap-1 rounded-full border border-[var(--dangerBorder)] bg-[var(--dangerBg)] px-2.5 py-1 text-xs font-medium text-[var(--danger)]",
       };
+    case "Confirmed":
+      return {
+        badge:
+          "inline-flex items-center gap-1 rounded-full border border-[var(--successBorder)] bg-[var(--successBg)] px-2.5 py-1 text-xs font-medium text-[var(--success)]",
+      };
     default:
       return {
         badge:
@@ -323,13 +328,29 @@ function statusStyles(status: AdminStatus): { badge: string } {
   }
 }
 
+function statusLabel(status: AdminStatus): string {
+  switch (status) {
+    case "Pending":
+      return "Pending Approval";
+    case "Approved":
+      return "Approved";
+    case "Denied":
+      return "Denied";
+    case "Confirmed":
+      return "Confirmed";
+    default:
+      return "Pending Approval";
+  }
+}
+
 export default function AdminApprovalsPage() {
-  const [bookings, setBookings] = useState<AdminBooking[]>(MOCK_BOOKINGS);
+  const [bookings, setBookings] = useState<AdminBooking[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [sort, setSort] = useState<SortOption>("newest");
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [actionLoading, setActionLoading] = useState<{ id: string; type: "approve" | "deny" } | null>(null);
   const [blockVersion, setBlockVersion] = useState(0);
   const [facilityOpen, setFacilityOpen] = useState(false);
   const [closeBuildingCode, setCloseBuildingCode] = useState("");
@@ -337,6 +358,35 @@ export default function AdminApprovalsPage() {
   const [blockRoomId, setBlockRoomId] = useState("");
   const [blockRoomDate, setBlockRoomDate] = useState("");
   const blocks = useMemo(() => getBlockedSlots(), [blockVersion]);
+
+  const refetchBookings = useCallback(async () => {
+    const res = await fetch("/api/admin/bookings", { method: "GET" });
+    if (!res.ok) {
+      const json = (await res.json().catch(() => ({}))) as { error?: unknown };
+      const msg = typeof json.error === "string" ? json.error : "Could not load bookings.";
+      throw new Error(msg);
+    }
+
+    const json = (await res.json().catch(() => ({}))) as { bookings?: unknown };
+    const list = Array.isArray(json.bookings) ? (json.bookings as AdminBooking[]) : [];
+    setBookings(list);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await refetchBookings();
+      } catch (e) {
+        if (cancelled) return;
+        const msg = e instanceof Error ? e.message : "Could not load bookings.";
+        showToast(msg, "danger");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [refetchBookings]);
 
   const filtered = useMemo(() => {
     let list = bookings;
@@ -373,13 +423,14 @@ export default function AdminApprovalsPage() {
     const pending = bookings.filter((b) => b.status === "Pending").length;
     // Demo-friendly: treat all approved/denied in the current dataset as "today"
     const approvedToday = bookings.filter((b) => b.status === "Approved").length;
+    const confirmedToday = bookings.filter((b) => b.status === "Confirmed").length;
     const deniedToday = bookings.filter((b) => b.status === "Denied").length;
     const requiringApprovalRooms = new Set(
       bookings
         .map((b) => roomKeyFromAdminRoomId(b.roomId))
         .filter((key) => getRoomMetadataWithDefaults(key).approvalRequired)
     );
-    return { pending, approvedToday, deniedToday, requiringApprovalRoomsCount: requiringApprovalRooms.size };
+    return { pending, approvedToday, confirmedToday, deniedToday, requiringApprovalRoomsCount: requiringApprovalRooms.size };
   }, [bookings]);
 
   const needsAttention = useMemo(() => {
@@ -406,19 +457,62 @@ export default function AdminApprovalsPage() {
     }, 2500);
   };
 
-  const updateStatus = (id: string, status: AdminStatus) => {
-    setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
-    showToast(
-      status === "Approved" ? "Booking approved" : status === "Denied" ? "Booking denied" : "Status reset",
-      status === "Denied" ? "danger" : "success"
-    );
+  const handleApprove = async (id: string) => {
+    if (actionLoading?.id === id && actionLoading?.type === "approve") return;
+    setActionLoading({ id, type: "approve" });
+    try {
+      const res = await fetch("/api/admin/bookings/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: id }),
+      });
+      if (!res.ok) {
+        const json = (await res.json().catch(() => ({}))) as { error?: unknown };
+        const msg = typeof json.error === "string" ? json.error : "Could not approve booking.";
+        throw new Error(msg);
+      }
+      showToast("Booking approved", "success");
+      await refetchBookings();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not approve booking.";
+      showToast(msg, "danger");
+    } finally {
+      setActionLoading(null);
+    }
   };
 
-  const handleApprove = (id: string) => updateStatus(id, "Approved");
-  const handleDeny = (id: string) => updateStatus(id, "Denied");
-  const handleUndo = (id: string) => updateStatus(id, "Pending");
-  const handleRequestChanges = (id: string) => {
-    showToast("Request for changes sent to organizer", "success");
+  const handleDeny = async (id: string) => {
+    if (actionLoading?.id === id && actionLoading?.type === "deny") return;
+    setActionLoading({ id, type: "deny" });
+    try {
+      const res = await fetch("/api/admin/bookings/deny", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: id }),
+      });
+      if (!res.ok) {
+        const json = (await res.json().catch(() => ({}))) as { error?: unknown };
+        const msg = typeof json.error === "string" ? json.error : "Could not deny booking.";
+        throw new Error(msg);
+      }
+      showToast("Booking denied", "success");
+      await refetchBookings();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not deny booking.";
+      showToast(msg, "danger");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleUndo = (_id: string) => {
+    // Undo is not wired to the backend in this task.
+    showToast("Undo not supported.", "info");
+  };
+
+  const handleRequestChanges = (_id: string) => {
+    // Keep as a UI affordance; not part of the approve/deny backend integration.
+    showToast("Request changes is not wired yet.", "info");
   };
 
   const handleCloseBuilding = () => {
@@ -471,6 +565,9 @@ export default function AdminApprovalsPage() {
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadowSm)]">
           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Approved today</p>
           <p className="mt-2 text-3xl font-bold text-[var(--success)]">{stats.approvedToday}</p>
+          <p className="mt-2 text-xs text-[var(--textMuted)]">
+            Confirmed: <span className="font-semibold text-[var(--textSecondary)]">{stats.confirmedToday}</span>
+          </p>
         </div>
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadowSm)]">
           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Denied today</p>
@@ -486,7 +583,6 @@ export default function AdminApprovalsPage() {
         <div className="mb-8 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6" style={{ borderRadius: "var(--radiusLg)" }}>
           <div className="mb-4 flex items-center justify-between gap-2">
             <h2 className="text-lg font-semibold text-[var(--text)]">Needs attention</h2>
-            <span className="text-xs text-[var(--textMuted)]">Demo signal</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             {needsAttention.map(({ b, isSoon, hasConflict }) => (
@@ -518,7 +614,7 @@ export default function AdminApprovalsPage() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="inline-flex rounded-full border border-[var(--border)] bg-[var(--surface)] p-1">
             {[
-              { key: "pending" as StatusFilter, label: "Pending" },
+              { key: "pending" as StatusFilter, label: "Pending Approval" },
               { key: "approved" as StatusFilter, label: "Approved" },
               { key: "denied" as StatusFilter, label: "Denied" },
             ].map((opt) => (
@@ -616,7 +712,7 @@ export default function AdminApprovalsPage() {
                           {formatDateTimeLabel(b)} · {b.duration}
                         </p>
                         <div className="flex flex-wrap gap-2 pt-1">
-                          <span className={statusStyle.badge}>{b.status}</span>
+                          <span className={statusStyle.badge}>{statusLabel(b.status)}</span>
                           {approvalRequired && <ApprovalBadge variant="required" />}
                           <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surfaceElevated)] px-2.5 py-1 text-xs font-medium text-[var(--textSecondary)]">
                             Group {b.groupSize} · {getCapacityBucketLabel(b.groupSize)}
@@ -645,16 +741,20 @@ export default function AdminApprovalsPage() {
                               <button
                                 type="button"
                                 onClick={() => handleApprove(b.id)}
-                                className="rounded-full bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primaryText)] shadow-[0_2px_8px_var(--primaryGlow)] transition-all duration-200 hover:bg-[var(--primaryHover)] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
+                                disabled={actionLoading?.id === b.id && actionLoading?.type === "approve"}
+                                className="rounded-full bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primaryText)] shadow-[0_2px_8px_var(--primaryGlow)] transition-all duration-200 hover:bg-[var(--primaryHover)] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] disabled:opacity-70 disabled:cursor-not-allowed"
                               >
-                                Approve
+                                {actionLoading?.id === b.id && actionLoading?.type === "approve"
+                                  ? "Approving..."
+                                  : "Approve"}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleDeny(b.id)}
-                                className="rounded-full border border-[var(--danger)] bg-transparent px-4 py-2 text-xs font-semibold text-[var(--danger)] transition-all duration-200 hover:bg-[var(--danger)]/10 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[var(--danger)]/60"
+                                disabled={actionLoading?.id === b.id && actionLoading?.type === "deny"}
+                                className="rounded-full border border-[var(--danger)] bg-transparent px-4 py-2 text-xs font-semibold text-[var(--danger)] transition-all duration-200 hover:bg-[var(--danger)]/10 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[var(--danger)]/60 disabled:opacity-70 disabled:cursor-not-allowed"
                               >
-                                Deny
+                                {actionLoading?.id === b.id && actionLoading?.type === "deny" ? "Denying..." : "Deny"}
                               </button>
                               <button
                                 type="button"
@@ -664,7 +764,7 @@ export default function AdminApprovalsPage() {
                                 Request changes
                               </button>
                             </>
-                          ) : (
+                          ) : b.status === "Approved" || b.status === "Denied" ? (
                             <button
                               type="button"
                               onClick={() => handleUndo(b.id)}
@@ -672,6 +772,8 @@ export default function AdminApprovalsPage() {
                             >
                               Undo
                             </button>
+                          ) : (
+                            <span className="inline-flex h-10" />
                           )}
                           <button
                             type="button"

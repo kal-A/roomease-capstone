@@ -84,7 +84,12 @@ export function TimeBar({
     const roomBookings = existingBookings
       .filter((b) => String(b.roomId) === String(roomId))
       // keep only bookings that land on the selected local date
-      .filter((b) => toLocalYmd(b.startTimeIsoUtc) === date);
+      .filter((b) => toLocalYmd(b.startTimeIsoUtc) === date)
+      // Denied should not block availability.
+      .filter((b) => {
+        const s = String(b.status ?? "").toLowerCase();
+        return s === "pending" || s === "approved" || s === "confirmed";
+      });
 
     const bookedRanges = roomBookings.map((b) => {
       const start = localMinutesFromIso(b.startTimeIsoUtc);
@@ -234,6 +239,17 @@ export function TimeBar({
 
   const contextBookedBy = overlapBookingsForContext[0]?.organizerName ?? "Unknown Organizer";
   const contextTimeLabel = `${formatTimeLabel(selectedRange.start)}–${formatTimeLabel(selectedRange.end)}`;
+
+  const bookingStatusLabel = (rawStatus?: string): string => {
+    const v = String(rawStatus ?? "").toLowerCase().trim();
+    if (v === "pending") return "Pending Approval";
+    if (v === "approved") return "Approved";
+    if (v === "confirmed") return "Confirmed";
+    if (v === "denied") return "Denied";
+    return "—";
+  };
+
+  const contextStatusLabel = bookingStatusLabel(overlapBookingsForContext[0]?.status);
 
   return (
     <motion.div
@@ -433,6 +449,16 @@ export function TimeBar({
                 <div className="mt-2 text-[10px] font-medium text-[var(--textMuted)]">
                   {conflictIsMine ? `Your booking · ${contextTimeLabel}` : `Booked by ${contextBookedBy} · ${contextTimeLabel}`}
                 </div>
+
+                  {overlapBookingsForContext.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {overlapBookingsForContext.slice(0, 2).map((b, idx) => (
+                        <p key={`${idx}-${b.startTimeIsoUtc}`} className="text-[11px] text-[var(--textSecondary)]">
+                          {b.isMine ? "Booked by you" : "Booked"} · {bookingStatusLabel(b.status)}
+                        </p>
+                      ))}
+                    </div>
+                  )}
 
                 {alternativeSlots.length > 0 ? (
                   <div className="mt-3">

@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { DateTime } from "luxon";
 import {
   BarChart,
   Bar,
@@ -17,22 +18,8 @@ import {
   CartesianGrid,
 } from "recharts";
 import { EmptyState } from "@/components/EmptyState";
-import { useBookings } from "@/lib/bookingsStore";
 import { getBuildingTicketLabel } from "@/lib/buildings";
-import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
-import {
-  getTopClubs,
-  getTopRooms,
-  getTopClubsPerRoom,
-  getBuildingsByClub,
-  getTrendsByClub,
-  filterBookingsByDateRange,
-  getApprovalFunnel,
-  getActiveClubs,
-  getAvgBookingsPerDay,
-  getPeakBookingDayAndHour,
-  type DateRangePreset,
-} from "@/lib/bookingAnalytics";
+import type { DateRangePreset } from "@/lib/bookingAnalytics";
 
 const GOLD = "var(--primary)";
 const AXIS_STROKE = "var(--textMuted)";
@@ -41,48 +28,110 @@ const GRID_STROKE = "var(--border)";
 export default function AdminAnalyticsPage() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.isAdmin ?? false;
-  const { bookings } = useBookings();
   const router = useRouter();
 
-  // Hard protection: redirect if not admin.
-  if (session && !isAdmin) {
-    router.replace("/");
-    return null;
-  }
+  type AdminAnalyticsResponse = {
+    overview: {
+      totalBookings: number;
+      pendingApprovals: number;
+      approvedBookings: number;
+      deniedBookings: number;
+      confirmedBookings: number;
+      activeClubsCount: number;
+      activeRoomsCount: number;
+      roomsRequiringApprovalCount: number;
+      avgBookingsPerDay: number;
+      peakDay: string | null;
+      peakHour: string | null;
+    };
+    topClubs: { key: string; label: string; count: number }[];
+    topRooms: { key: string; label: string; count: number }[];
+    perRoomClubs: {
+      roomId: string;
+      roomName: string;
+      building: string;
+      topClubs: { key: string; label: string; count: number }[];
+    }[];
+    topBuildings: { key: string; label: string; count: number }[];
+    approvalFunnel: { submitted: number; pending: number; approved: number; denied: number; confirmed: number };
+    defaultClubKey: string;
+    roomsByClub: { key: string; label: string; count: number }[];
+    clubTrends: { date: string; bookings: number }[];
+  };
 
   const [range, setRange] = useState<DateRangePreset>("30d");
-  const rangedBookings = useMemo(() => filterBookingsByDateRange(bookings, range), [bookings, range]);
+  const [selectedClubKey, setSelectedClubKey] = useState<string>("");
+  const [analytics, setAnalytics] = useState<AdminAnalyticsResponse | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const topClubs = useMemo(() => getTopClubs(rangedBookings, 12), [rangedBookings]);
-  const topRooms = useMemo(() => getTopRooms(rangedBookings, 10), [rangedBookings]);
-  const perRoomClubs = useMemo(() => getTopClubsPerRoom(rangedBookings, 3), [rangedBookings]);
+  // Redirect non-admins after hooks have been called (keeps hook order stable).
+  useEffect(() => {
+    if (session && !isAdmin) router.replace("/");
+  }, [session, isAdmin, router]);
 
-  const [selectedClubKey, setSelectedClubKey] = useState<string>(() =>
-    topClubs.length > 0 ? topClubs[0].key : ""
-  );
+  useEffect(() => {
+    if (!session || !isAdmin) return;
 
-  const buildingByClub = useMemo(
-    () => (selectedClubKey ? getBuildingsByClub(rangedBookings, selectedClubKey) : []),
-    [rangedBookings, selectedClubKey]
-  );
-  const clubTrends = useMemo(
-    () => (selectedClubKey ? getTrendsByClub(rangedBookings, selectedClubKey) : []),
-    [rangedBookings, selectedClubKey]
-  );
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setFetchError(null);
+      try {
+        const params = new URLSearchParams();
 
-  const hasData = rangedBookings.length > 0;
-  const funnel = useMemo(() => getApprovalFunnel(rangedBookings), [rangedBookings]);
-  const roomsRequiringApprovalCount = useMemo(() => {
-    const set = new Set<string>();
-    for (const b of rangedBookings) {
-      const key = String(b.roomId);
-      if (getRoomMetadataWithDefaults(key).approvalRequired) set.add(key);
-    }
-    return set.size;
-  }, [rangedBookings]);
-  const activeClubsCount = useMemo(() => getActiveClubs(rangedBookings), [rangedBookings]);
-  const avgPerDay = useMemo(() => getAvgBookingsPerDay(rangedBookings), [rangedBookings]);
-  const peak = useMemo(() => getPeakBookingDayAndHour(rangedBookings), [rangedBookings]);
+        if (range !== "all") {
+          const days = range === "7d" ? 7 : range === "30d" ? 30 : 90;
+          const now = DateTime.now().setZone("America/Toronto");
+          const start = now.minus({ days });
+          params.set("startDate", start.toFormat("yyyy-LL-dd"));
+          params.set("endDate", now.toFormat("yyyy-LL-dd"));
+        }
+
+        if (selectedClubKey) params.set("club", selectedClubKey);
+
+        const qs = params.toString();
+        const res = await fetch(`/api/admin/analytics${qs ? `?${qs}` : ""}`, { method: "GET" });
+        if (!res.ok) {
+          const json = (await res.json().catch(() => ({}))) as { error?: unknown };
+          const msg = typeof json.error === "string" ? json.error : "Could not load analytics.";
+          throw new Error(msg);
+        }
+
+        const json = (await res.json().catch(() => null)) as AdminAnalyticsResponse | null;
+        if (!json || cancelled) return;
+
+        setAnalytics(json);
+        if (!selectedClubKey && json.defaultClubKey) {
+          setSelectedClubKey(json.defaultClubKey);
+        }
+      } catch (e) {
+        if (cancelled) return;
+        setFetchError(e instanceof Error ? e.message : "Could not load analytics.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session, isAdmin, range, selectedClubKey]);
+
+  const hasData = (analytics?.overview?.totalBookings ?? 0) > 0;
+  const topClubs = analytics?.topClubs ?? [];
+  const topRooms = analytics?.topRooms ?? [];
+  const perRoomClubs = analytics?.perRoomClubs ?? [];
+  const topBuildings = analytics?.topBuildings ?? [];
+  const roomsByClub = analytics?.roomsByClub ?? [];
+  const clubTrends = analytics?.clubTrends ?? [];
+
+  const funnel = analytics?.approvalFunnel ?? { submitted: 0, pending: 0, approved: 0, denied: 0, confirmed: 0 };
+  const activeClubsCount = analytics?.overview?.activeClubsCount ?? 0;
+  // peak/avg/roomsRequiringApproval are currently used only in the overview cards
+  // and may be extended later.
+
+  if (session && !isAdmin) return null;
 
   return (
     <div className="mx-auto max-w-[1200px] px-6 py-12 sm:px-8 sm:py-16 lg:px-10">
@@ -112,7 +161,11 @@ export default function AdminAnalyticsPage() {
         </div>
       </div>
 
-      {!hasData ? (
+      {loading ? (
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-10 shadow-lg">
+          <p className="text-[var(--textSecondary)]">Loading analytics...</p>
+        </div>
+      ) : !hasData ? (
         <EmptyState
           icon={
             <svg className="h-12 w-12 text-[var(--textMuted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2} aria-hidden>
@@ -123,6 +176,10 @@ export default function AdminAnalyticsPage() {
           description="Once there are bookings in the system, club analytics will appear here."
           suggestion="Use the demo booking flow to seed data."
         />
+      ) : fetchError ? (
+        <div className="rounded-2xl border border-[var(--dangerBorder)] bg-[var(--dangerBg)] p-6 shadow-lg">
+          <p className="text-sm font-semibold text-[var(--danger)]">{fetchError}</p>
+        </div>
       ) : (
         <div
           className="grid gap-8 grid-cols-1 md:grid-cols-2 auto-rows-fr"
@@ -137,20 +194,20 @@ export default function AdminAnalyticsPage() {
           >
             <div className="flex flex-wrap gap-4">
               {[
-                { label: "Total bookings", value: rangedBookings.length },
+                { label: "Total bookings", value: funnel.submitted },
                 { label: "Pending approvals", value: funnel.pending },
-                { label: "Rooms requiring approval", value: roomsRequiringApprovalCount },
+                { label: "Approved bookings", value: funnel.approved },
+                { label: "Denied bookings", value: funnel.denied },
+                { label: "Confirmed bookings", value: funnel.confirmed },
                 { label: "Active clubs", value: activeClubsCount },
-                { label: "Avg bookings / day", value: avgPerDay.toFixed(1) },
-                { label: "Peak day", value: peak.peakDay ?? "—" },
-                { label: "Peak hour", value: peak.peakHour ?? "—" },
+                { label: "Active rooms", value: analytics?.overview?.activeRoomsCount ?? 0 },
               ].map((m) => (
                 <div
                   key={m.label}
                   className="flex-1 min-w-[180px] rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-5 py-4 transition-all duration-200 hover:border-[var(--borderStrong)]"
                 >
                   <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">{m.label}</p>
-                  <p className="mt-2 text-2xl font-bold tracking-tight text-[var(--text)]">{m.value as any}</p>
+                  <p className="mt-2 text-2xl font-bold tracking-tight text-[var(--text)]">{m.value}</p>
                 </div>
               ))}
             </div>
@@ -222,6 +279,42 @@ export default function AdminAnalyticsPage() {
             </ul>
           </motion.section>
 
+          {/* E) Most popular buildings overall */}
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.12 }}
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col"
+          >
+            <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">
+              Most Popular Buildings
+            </h2>
+            {topBuildings.length === 0 ? (
+              <p className="text-sm text-[var(--textSecondary)]">No building analytics yet.</p>
+            ) : (
+              <ul className="space-y-3">
+                {topBuildings.map((b, i) => (
+                  <li
+                    key={b.key}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--primary)]/10 text-xs font-semibold text-[var(--primary)]">
+                        {i + 1}
+                      </span>
+                      <p className="truncate text-sm font-medium text-[var(--text)]">
+                        {getBuildingTicketLabel(b.label)}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-xs text-[var(--textSecondary)]">
+                      {b.count} booking{b.count !== 1 ? "s" : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </motion.section>
+
           {/* B) Top clubs per room */}
           <motion.section
             initial={{ opacity: 0, y: 12 }}
@@ -280,7 +373,7 @@ export default function AdminAnalyticsPage() {
           >
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="text-xl font-semibold tracking-tight text-[var(--text)]">
-                Building Popularity by Club
+                Room Popularity by Club
               </h2>
             </div>
             <div className="mb-4">
@@ -299,17 +392,17 @@ export default function AdminAnalyticsPage() {
                 ))}
               </select>
             </div>
-            {buildingByClub.length === 0 ? (
+            {roomsByClub.length === 0 ? (
               <p className="text-sm text-[var(--textSecondary)]">
-                No building data for this club yet.
+                No room popularity data for this club yet.
               </p>
             ) : (
               <div className="min-h-[200px] flex-1 flex items-stretch">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={buildingByClub.map((b) => ({
+                    data={roomsByClub.map((b) => ({
                       ...b,
-                      name: getBuildingTicketLabel(b.label),
+                      name: b.label,
                     }))}
                     layout="vertical"
                     margin={{ top: 0, right: 8, left: 0, bottom: 0 }}
@@ -337,7 +430,7 @@ export default function AdminAnalyticsPage() {
                       formatter={(value) => [value ?? 0, "Bookings"]}
                     />
                     <Bar dataKey="count" radius={[0, 4, 4, 0]} animationDuration={600} animationBegin={0}>
-                      {buildingByClub.map((_, i) => (
+                      {roomsByClub.map((_, i) => (
                         <Cell key={i} fill={GOLD} />
                       ))}
                     </Bar>

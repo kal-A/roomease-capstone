@@ -59,10 +59,24 @@ export function getBlockedAsBookings(
   roomId: string | number,
   date: string,
   building?: string
-): { roomId: string; preferredDate: string; timeSlot: string; durationMinutes: number }[] {
+): {
+  roomId: string;
+  preferredDate: string;
+  timeSlot: string;
+  durationMinutes: number;
+  organizerEmail?: string;
+  organizerName?: string;
+}[] {
   const slots = load();
   const roomIdStr = String(roomId);
-  const result: { roomId: string; preferredDate: string; timeSlot: string; durationMinutes: number }[] = [];
+  const result: {
+    roomId: string;
+    preferredDate: string;
+    timeSlot: string;
+    durationMinutes: number;
+    organizerEmail?: string;
+    organizerName?: string;
+  }[] = [];
 
   for (const s of slots) {
     if (s.type === "building" && s.building && building && String(building) === s.building) {

@@ -257,14 +257,16 @@ function BookPageContent() {
   const [liveRoomBookings, setLiveRoomBookings] = useState<TimeBarBooking[]>([]);
   const existingBookings = useMemo(
     () =>
-      bookings.map((b) => ({
-        roomId: b.roomId,
-        preferredDate: b.preferredDate,
-        timeSlot: b.timeSlot,
-        durationMinutes: b.durationMinutes,
-        organizerName: b.organizerName,
-        organizerEmail: b.organizerEmail,
-      })),
+      bookings
+        .filter((b) => b.status === "pending" || b.status === "approved" || b.status === "confirmed")
+        .map((b) => ({
+          roomId: b.roomId,
+          preferredDate: b.preferredDate,
+          timeSlot: b.timeSlot,
+          durationMinutes: b.durationMinutes,
+          organizerName: b.organizerName,
+          organizerEmail: b.organizerEmail,
+        })),
     [bookings]
   );
 
@@ -438,7 +440,7 @@ function BookPageContent() {
 
   const handleConfirmBooking = useCallback(async () => {
     if (!pendingBooking) return;
-    let createdBookingResponse: { booking?: { status?: string } } | null = null;
+    let createdBookingResponse: { booking?: { id?: string; status?: string } } | null = null;
     try {
       const { startTimeIsoUtc, endTimeIsoUtc } = buildBookingRange({
         preferredDate: pendingBooking.formData.preferredDate ?? "",
@@ -509,7 +511,7 @@ function BookPageContent() {
         return;
       }
 
-      createdBookingResponse = (await res.json().catch(() => null)) as { booking?: { status?: string } } | null;
+      createdBookingResponse = (await res.json().catch(() => null)) as { booking?: { id?: string; status?: string } } | null;
     } catch (e) {
       console.error("BOOKING CREATE API ERROR", e);
       const isDirect = !!lockedRoom && String(pendingBooking.room.id) === String(lockedRoom.id);
@@ -528,10 +530,12 @@ function BookPageContent() {
       return;
     }
 
+    const backendBookingId = createdBookingResponse?.booking?.id ? String(createdBookingResponse.booking.id) : undefined;
     const booking = addBooking({
       form: pendingBooking.formData,
       room: pendingBooking.room,
       organizerEmail: session?.user?.email ?? undefined,
+      backendBookingId,
     });
 
     // Use returned backend status (source of truth) for confirmation UI + My Bookings labels.
@@ -606,6 +610,7 @@ function BookPageContent() {
       return;
     }
     setSelectedRoom(lockedRoom);
+    let createdBookingResponse: { booking?: { id?: string; status?: string } } | null = null;
     try {
       const { startTimeIsoUtc, endTimeIsoUtc } = buildBookingRange({
         preferredDate: formData.preferredDate ?? "",
@@ -633,6 +638,8 @@ function BookPageContent() {
         setSelectedRoom(null);
         return;
       }
+
+      createdBookingResponse = (await res.json().catch(() => null)) as { booking?: { id?: string; status?: string } } | null;
     } catch (e) {
       console.error("BOOKING CREATE API ERROR", e);
       setSelectedRoomError(["Something went wrong creating your booking. Please try again."]);
@@ -640,15 +647,23 @@ function BookPageContent() {
       return;
     }
 
+    const backendBookingId = createdBookingResponse?.booking?.id ? String(createdBookingResponse.booking.id) : undefined;
     const booking = addBooking({
       form: formData,
       room: lockedRoom,
       organizerEmail: session?.user?.email ?? undefined,
+      backendBookingId,
     });
+
+    const serverStatusRaw = String(createdBookingResponse?.booking?.status ?? "");
+    const serverStatus = normalizeBookingStatus(serverStatusRaw) ?? booking.status;
+    setBookingStatus(booking.id, serverStatus);
+    setSelectedBookingStatus(serverStatus);
+
     setConfirmationNumber(booking.confirmationNumber);
     setSelectedRoomError(null);
     setStep(3);
-  }, [lockedRoom, formData, existingBookingsWithBlocked, addBooking, session?.user?.email]);
+  }, [lockedRoom, formData, existingBookingsWithBlocked, addBooking, session?.user?.email, setBookingStatus]);
 
   return (
     <div className="mx-auto max-w-[1200px] px-6 py-6 sm:px-8 sm:py-10 lg:px-10">
