@@ -7,7 +7,7 @@ type DirectoryUser = { name: string; email: string };
 
 /** Mock UW directory for demo; replace with real directory API later */
 const MOCK_UW_DIRECTORY: DirectoryUser[] = [
-  { name: "Farhan Valli", email: "farhan@uwaterloo.ca" },
+  { name: "Farhan Valli", email: "fvalli@uwaterloo.ca" },
   { name: "Pranav Gupta", email: "p37gupta@uwaterloo.ca" },
   { name: "Jey Jeyapalan", email: "sjeyapal@uwaterloo.ca" },
   { name: "Kamal Ahsan", email: "k4ahsan@uwaterloo.ca" },

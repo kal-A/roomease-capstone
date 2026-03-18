@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { DateTime } from "luxon";
-import { TIME_SLOTS_30MIN, timeToMinutes, timeRangesOverlap, formatTimeSlot } from "@/types/booking";
+import { TIME_SLOTS_30MIN, timeToMinutes, timeRangesOverlap } from "@/types/booking";
 
 export interface TimeBarBooking {
   roomId: string;
@@ -60,12 +60,6 @@ function toLocalYmd(isoUtc: string): string {
   return `${y}-${m}-${day}`;
 }
 
-function displayBookerNameOrEmail(args: { bookerName?: string | null; bookerEmail?: string }): string {
-  const n = (args.bookerName ?? "").toString().trim();
-  if (n) return n.split(/\s+/)[0] ?? n;
-  return args.bookerEmail ? args.bookerEmail : "—";
-}
-
 export function TimeBar({
   roomId,
   date,
@@ -74,9 +68,11 @@ export function TimeBar({
   existingBookings,
   onAdjustToNextAvailable,
   onSelectSlot,
-  viewerEmail,
 }: TimeBarProps) {
-  const { selectedRange, bookedRanges, roomBookings, nextAvailableBlock, alternativeSlots, hasConflict, conflictIsMine } = useMemo(() => {
+  const [showAvailableSuccess, setShowAvailableSuccess] = useState(false);
+  const prevHasConflictRef = useRef<boolean>(false);
+
+  const { selectedRange, bookedRanges, roomBookings, alternativeSlots, hasConflict, conflictIsMine } = useMemo(() => {
     if (!date || !timeSlot || !durationMinutes) {
       return { selectedRange: null, bookedRanges: [], roomBookings: [], nextAvailableBlock: null, alternativeSlots: [], hasConflict: false, conflictIsMine: false };
     }
@@ -115,6 +111,7 @@ export function TimeBar({
       const sortedBookings = [...roomBookings].sort(
         (a, b) => localMinutesFromIso(a.startTimeIsoUtc) - localMinutesFromIso(b.startTimeIsoUtc)
       );
+      const candidates: { start: number; end: number; slot: string }[] = [];
       for (const slot of TIME_SLOTS_30MIN) {
         const slotStartM = timeToMinutes(slot.value);
         if (slotStartM + durationMinutes > DAY_END) break;
@@ -124,15 +121,54 @@ export function TimeBar({
           return timeRangesOverlap(bStart, bEnd - bStart, slotStartM, durationMinutes);
         });
         if (!conflictsWithBlock) {
-          const block = { start: slotStartM, end: slotStartM + durationMinutes, slot: slot.value };
-          if (!nextAvailableBlock) nextAvailableBlock = block;
-          if (alternativeSlots.length < 3) alternativeSlots.push(block);
+          candidates.push({ start: slotStartM, end: slotStartM + durationMinutes, slot: slot.value });
+        }
+      }
+
+      // Choose closest options both before and after the originally selected start time.
+      const dist = (x: number) => Math.abs(x - selectedRange.start);
+      const bestBefore = candidates
+        .filter((c) => c.start < selectedRange.start)
+        .sort((a, b) => dist(a.start) - dist(b.start) || a.start - b.start)[0];
+      const bestAfter = candidates
+        .filter((c) => c.start >= selectedRange.start)
+        .sort((a, b) => dist(a.start) - dist(b.start) || a.start - b.start)[0];
+
+      // For completeness (not shown in UI anymore), keep "nextAvailableBlock" as earliest after.
+      nextAvailableBlock = bestAfter ?? null;
+
+      const usedSlots = new Set<string>();
+      const pushCandidate = (c: { start: number; end: number; slot: string } | undefined) => {
+        if (!c) return;
+        if (usedSlots.has(c.slot)) return;
+        usedSlots.add(c.slot);
+        alternativeSlots.push({ ...c });
+      };
+
+      pushCandidate(bestBefore);
+      pushCandidate(bestAfter);
+
+      // Fill remaining slots with overall closest candidates.
+      if (alternativeSlots.length < 3) {
+        const overall = [...candidates].sort((a, b) => dist(a.start) - dist(b.start) || a.start - b.start);
+        for (const c of overall) {
+          if (alternativeSlots.length >= 3) break;
+          pushCandidate(c);
         }
       }
     }
 
     return { selectedRange, bookedRanges, roomBookings, nextAvailableBlock, alternativeSlots, hasConflict, conflictIsMine };
   }, [roomId, date, timeSlot, durationMinutes, existingBookings]);
+
+  useEffect(() => {
+    if (prevHasConflictRef.current && !hasConflict) {
+      setShowAvailableSuccess(true);
+      const t = window.setTimeout(() => setShowAvailableSuccess(false), 1800);
+      return () => window.clearTimeout(t);
+    }
+    prevHasConflictRef.current = hasConflict;
+  }, [hasConflict]);
 
   if (!selectedRange) {
     return null;
@@ -187,8 +223,17 @@ export function TimeBar({
 
   const selectedLeft = ((selectedRange.start - DAY_START) / TOTAL_MINUTES) * 100;
   const selectedWidth = (durationMinutes / TOTAL_MINUTES) * 100;
-  const nextAvailableLeft = nextAvailableBlock ? ((nextAvailableBlock.start - DAY_START) / TOTAL_MINUTES) * 100 : null;
-  const nextAvailableWidth = nextAvailableBlock ? ((nextAvailableBlock.end - nextAvailableBlock.start) / TOTAL_MINUTES) * 100 : null;
+
+  const overlapBookingsForContext = roomBookings
+    .filter((b) => {
+      const start = localMinutesFromIso(b.startTimeIsoUtc);
+      const end = localMinutesFromIso(b.endTimeIsoUtc);
+      return timeRangesOverlap(start, end - start, selectedRange.start, durationMinutes);
+    })
+    .sort((a, b) => localMinutesFromIso(a.startTimeIsoUtc) - localMinutesFromIso(b.startTimeIsoUtc));
+
+  const contextBookedBy = overlapBookingsForContext[0]?.organizerName ?? "Unknown Organizer";
+  const contextTimeLabel = `${formatTimeLabel(selectedRange.start)}–${formatTimeLabel(selectedRange.end)}`;
 
   return (
     <motion.div
@@ -205,9 +250,24 @@ export function TimeBar({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="text-xs text-[var(--success)] font-medium"
+            className={
+              showAvailableSuccess
+                ? "inline-flex items-center gap-2 rounded-full bg-[var(--success)]/15 border border-[var(--success)]/30 px-3 py-1 text-xs font-medium text-[var(--success)]"
+                : "text-xs text-[var(--success)] font-medium"
+            }
           >
-            ✓ Available for selected duration
+            {showAvailableSuccess ? (
+              <>
+                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--success)]/20 border border-[var(--success)]/35">
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M20 6L9 17l-5-5" />
+                  </svg>
+                </span>
+                This time slot is available
+              </>
+            ) : (
+              "✓ Available for selected duration"
+            )}
           </motion.p>
         )}
       </div>
@@ -261,16 +321,22 @@ export function TimeBar({
               className={`absolute top-0 bottom-0 rounded ${
                 hasConflict
                   ? "bg-[var(--danger)]/30 border-2 border-[var(--danger)] ring-2 ring-[var(--danger)]/40"
-                  : "bg-[var(--primary)]/20 border-2 border-[var(--primary)]"
+                  : showAvailableSuccess
+                    ? "bg-[var(--success)]/18 border-2 border-[var(--success)]/70 ring-2 ring-[var(--success)]/25"
+                    : "bg-[var(--primary)]/20 border-2 border-[var(--primary)]"
               }`}
               style={{
                 left: `${selectedLeft}%`,
                 width: `${selectedWidth}%`,
                 transformOrigin: "left",
-                ...(hasConflict ? {} : {
-                  boxShadow: "0 0 0 2px var(--primaryGlow)",
-                  animation: "pulse-glow 2s ease-in-out infinite",
-                }),
+                ...(hasConflict
+                  ? {}
+                  : showAvailableSuccess
+                    ? { boxShadow: "0 0 0 2px var(--successGlow)" }
+                    : {
+                        boxShadow: "0 0 0 2px var(--primaryGlow)",
+                        animation: "pulse-glow 2s ease-in-out infinite",
+                      }),
               }}
             />
           )}
@@ -291,28 +357,8 @@ export function TimeBar({
           )}
 
           {/* Next available block indicator */}
-          {nextAvailableBlock && (
-            <>
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.3 }}
-                className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[var(--primary)]/10 border border-[var(--primary)]/40 px-2 py-0.5 text-[10px] font-medium text-[var(--primary)]"
-                style={{
-                  left: `${(nextAvailableLeft ?? 0) + (nextAvailableWidth ?? 0) / 2}%`,
-                }}
-              >
-                Next: {formatTimeLabel(nextAvailableBlock.start)}–{formatTimeLabel(nextAvailableBlock.end)}
-              </motion.div>
-              <div
-                className="absolute top-0 bottom-0 border-2 border-[var(--primary)]/60 border-dashed rounded"
-                style={{
-                  left: `${nextAvailableLeft}%`,
-                  width: `${nextAvailableWidth}%`,
-                }}
-              />
-            </>
-          )}
+          {/* Intentionally omit any "next available time" indicator to avoid misleading guidance.
+              Use the clearer "Closest available options" actions in the conflict panel instead. */}
         </div>
 
         {/* Time labels */}
@@ -362,99 +408,75 @@ export function TimeBar({
       </div>
 
       {/* Conflict: clear state, next available, Shift +30m, Next slot, privacy-aware booked list */}
-      {hasConflict && (
-        <div className="mt-3 space-y-3 rounded-xl border border-[var(--danger)]/60 bg-[var(--dangerBg)] p-4">
-          <div className="flex items-start gap-2 text-xs text-[var(--danger)] font-medium">
-            <svg className="h-4 w-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-            <span>
-              {conflictIsMine
-                ? "You already have this room booked for that time."
-                : "This room is already booked for that time."}
-            </span>
-          </div>
-          <p className="text-xs text-[var(--textSecondary)]">
-            Try a different time slot or choose the next available opening.
-          </p>
-          {/* Overlapping bookings (privacy: organizer first name + truncated email unless viewer is organizer) */}
-          {roomBookings.some((b) => {
-            const start = localMinutesFromIso(b.startTimeIsoUtc);
-            const end = localMinutesFromIso(b.endTimeIsoUtc);
-            return timeRangesOverlap(start, end - start, selectedRange.start, durationMinutes);
-          }) && (
-            <div className="space-y-1">
-              {roomBookings
-                .filter((b) => {
-                  const start = localMinutesFromIso(b.startTimeIsoUtc);
-                  const end = localMinutesFromIso(b.endTimeIsoUtc);
-                  return timeRangesOverlap(start, end - start, selectedRange.start, durationMinutes);
-                })
-                .map((b, i) => {
-                  const label = b.isMine ? "Booked by you" : "Booked";
-                  const who = b.isMine
-                    ? (b.eventName ? `${b.organizerName ?? "Unknown Organizer"} · ${b.eventName}` : (b.organizerName ?? "Unknown Organizer"))
-                    : `${b.organizerName ?? "Unknown Organizer"} · ${displayBookerNameOrEmail({ bookerName: b.bookerName, bookerEmail: b.bookerEmail })}`;
-                  return (
-                    <p key={i} className="text-xs text-[var(--textSecondary)]">
-                      {label} · {who}{b.status ? ` · ${String(b.status).toUpperCase()}` : ""}
-                    </p>
-                  );
-                })}
+      <AnimatePresence>
+        {hasConflict && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.22 }}
+            className="mt-3 rounded-lg border border-[var(--danger)]/60 bg-[var(--dangerBg)] shadow-[var(--shadowLg)] p-4"
+            role="alert"
+          >
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-[var(--danger)]/15 border border-[var(--danger)]/30">
+                <svg className="h-5 w-5 text-[var(--danger)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86l-7.2 12.49A2 2 0 0 0 4.82 19h14.36a2 2 0 0 0 1.73-2.65l-7.2-12.49a2 2 0 0 0-3.46 0z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-bold text-[var(--text)]">Time slot unavailable</div>
+                <div className="mt-0.5 text-xs font-medium text-[var(--textSecondary)]">
+                  {conflictIsMine ? "You already have this room booked for that time." : "This room is already booked for that time."}
+                </div>
+                <div className="mt-2 text-xs text-[var(--textSecondary)]">Try a different time or choose one of the options below.</div>
+                <div className="mt-2 text-[10px] font-medium text-[var(--textMuted)]">
+                  {conflictIsMine ? `Your booking · ${contextTimeLabel}` : `Booked by ${contextBookedBy} · ${contextTimeLabel}`}
+                </div>
+
+                {alternativeSlots.length > 0 ? (
+                  <div className="mt-3">
+                    <p className="mb-2 text-xs font-semibold text-[var(--textMuted)]">Closest available options:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {alternativeSlots.slice(0, 3).map((alt, idx) => {
+                        const isSelected = alt.slot === timeSlot;
+                        return (
+                          <motion.button
+                            key={alt.slot}
+                            type="button"
+                            whileTap={{ scale: 0.98 }}
+                            initial={{ opacity: 0, y: 4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.2, delay: idx * 0.03 }}
+                            onClick={() => onAdjustToNextAvailable?.(alt.slot)}
+                            aria-pressed={isSelected}
+                            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] ${
+                              isSelected
+                                ? "border-[var(--primary)] bg-[var(--primary)]/15 text-[var(--primary)] shadow-[0_0_0_2px_var(--primaryGlow)]"
+                                : "border-[var(--border)] bg-[var(--surface)] text-[var(--textSecondary)] hover:bg-[var(--surfaceElevated)] hover:text-[var(--text)] hover:-translate-y-0.5"
+                            }`}
+                          >
+                            <span className="inline-flex items-center gap-2">
+                              {isSelected && (
+                                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                  <path d="M20 6L9 17l-5-5" />
+                                </svg>
+                              )}
+                              {formatTimeLabel(alt.start)}–{formatTimeLabel(alt.end)}
+                            </span>
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-[var(--textMuted)]">No nearby openings found for this date.</p>
+                )}
+              </div>
             </div>
-          )}
-          {nextAvailableBlock && (
-            <p className="text-xs text-[var(--textSecondary)]">
-              Next available start time: {formatTimeLabel(nextAvailableBlock.start)}
-            </p>
-          )}
-          <div className="flex flex-wrap gap-2">
-            {/* Shift +30m: move start by 30 minutes, clamp to day */}
-            {(() => {
-              const shiftStart = selectedRange.start + 30;
-              const clampedStart = Math.min(shiftStart, DAY_END - durationMinutes);
-              const shiftSlot = minutesToSlot(clampedStart);
-              const wouldConflict = roomBookings.some((b) => {
-                const start = localMinutesFromIso(b.startTimeIsoUtc);
-                const end = localMinutesFromIso(b.endTimeIsoUtc);
-                return timeRangesOverlap(start, end - start, clampedStart, durationMinutes);
-              });
-              if (clampedStart < DAY_START || wouldConflict) return null;
-              return (
-                <button
-                  type="button"
-                  onClick={() => onAdjustToNextAvailable?.(shiftSlot)}
-                  className="rounded-lg border border-[var(--primary)]/50 bg-[var(--primary)]/10 px-3 py-1.5 text-xs font-medium text-[var(--primary)] hover:bg-[var(--primary)]/20 transition-colors"
-                >
-                  Shift +30m
-                </button>
-              );
-            })()}
-            {nextAvailableBlock && (
-              <button
-                type="button"
-                onClick={() => onAdjustToNextAvailable?.(nextAvailableBlock!.slot)}
-                className="rounded-lg border border-[var(--primary)]/50 bg-[var(--primary)]/15 px-3 py-1.5 text-xs font-medium text-[var(--primary)] hover:bg-[var(--primary)]/25 transition-colors"
-              >
-                Next available slot
-              </button>
-            )}
-            {alternativeSlots.slice(0, 2).map((alt) => (
-              <button
-                key={alt.slot}
-                type="button"
-                onClick={() => onAdjustToNextAvailable?.(alt.slot)}
-                className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-medium text-[var(--textSecondary)] hover:bg-[var(--surfaceElevated)] hover:text-[var(--text)] transition-colors"
-              >
-                {formatTimeLabel(alt.start)}–{formatTimeLabel(alt.end)}
-              </button>
-            ))}
-          </div>
-          {alternativeSlots.length === 0 && !nextAvailableBlock && (
-            <p className="text-xs text-[var(--textMuted)]">No availability remaining for this date. Try another day.</p>
-          )}
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

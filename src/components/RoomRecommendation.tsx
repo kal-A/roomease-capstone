@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import type { EventFormData } from "@/types/booking";
@@ -7,12 +8,21 @@ import type { Room } from "@/types/booking";
 import { RoomCard } from "./RoomCard";
 import { RoomDetailsModal } from "./RoomDetailsModal";
 
+type BookingConflictContext = {
+  isMine: boolean;
+  organizerName: string;
+  timeLabel: string;
+};
+
 interface RoomRecommendationProps {
   formData: EventFormData;
   matchingRooms: Room[];
   onSelectRoom: (room: Room) => void;
   onBack: () => void;
   doubleBookingError: string | null;
+  bookingErrorRef?: Ref<HTMLDivElement | null>;
+  errorPulseKey?: number;
+  bookingConflictContext?: BookingConflictContext | null;
 }
 
 export function RoomRecommendation({
@@ -21,8 +31,12 @@ export function RoomRecommendation({
   onSelectRoom,
   onBack,
   doubleBookingError,
+  bookingErrorRef,
+  errorPulseKey = 0,
+  bookingConflictContext,
 }: RoomRecommendationProps) {
   const [detailsRoom, setDetailsRoom] = useState<Room | null>(null);
+  const isTimeConflictError = doubleBookingError ? /booked|blocked/i.test(doubleBookingError) : false;
 
   if (matchingRooms.length === 0) {
     return (
@@ -47,17 +61,49 @@ export function RoomRecommendation({
     <div className="space-y-4">
       {doubleBookingError && (
         <motion.div
-          initial={{ opacity: 0, y: -4 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-[var(--danger)]/50 bg-[var(--dangerBg)] p-4"
+          key={`booking-error-${errorPulseKey}`}
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0, x: [0, -2, 2, -2, 0] }}
+          transition={{ duration: 0.22 }}
+          id="booking-error"
+          tabIndex={-1}
+          ref={bookingErrorRef}
+          className="rounded-lg border border-[var(--danger)]/60 bg-[var(--dangerBg)] shadow-[var(--shadowLg)] p-4 scroll-mt-24"
           style={{ borderRadius: "var(--radiusLg)" }}
           role="alert"
         >
-          <div className="flex items-start gap-2.5">
-            <svg className="h-5 w-5 shrink-0 text-[var(--danger)] mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <p className="text-sm font-semibold text-[var(--danger)] leading-relaxed">{doubleBookingError}</p>
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-[var(--danger)]/15 border border-[var(--danger)]/30">
+              <svg className="h-5 w-5 text-[var(--danger)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86l-7.2 12.49A2 2 0 0 0 4.82 19h14.36a2 2 0 0 0 1.73-2.65l-7.2-12.49a2 2 0 0 0-3.46 0z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              {isTimeConflictError ? (
+                <>
+                  <div className="text-sm font-bold text-[var(--text)]">Time slot unavailable</div>
+                  <div className="mt-0.5 text-xs font-medium text-[var(--textSecondary)]">
+                    {bookingConflictContext?.isMine
+                      ? "You already have this room booked for that time."
+                      : "This room is already booked for that time."}
+                  </div>
+                  <div className="mt-2 text-xs text-[var(--textSecondary)]">Try a different time or choose one of the options below.</div>
+                  <div className="mt-2 text-[10px] font-medium text-[var(--textMuted)]">
+                    {bookingConflictContext
+                      ? bookingConflictContext.isMine
+                        ? `Your booking · ${bookingConflictContext.timeLabel}`
+                        : `Booked by ${bookingConflictContext.organizerName} · ${bookingConflictContext.timeLabel}`
+                      : doubleBookingError}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-sm font-bold text-[var(--text)]">Booking couldn’t be confirmed</div>
+                  <div className="mt-1 text-xs font-medium text-[var(--textSecondary)]">{doubleBookingError}</div>
+                  <div className="mt-2 text-xs text-[var(--textSecondary)]">Review the details and try again.</div>
+                </>
+              )}
+            </div>
           </div>
         </motion.div>
       )}
