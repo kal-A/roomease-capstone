@@ -438,6 +438,7 @@ function BookPageContent() {
 
   const handleConfirmBooking = useCallback(async () => {
     if (!pendingBooking) return;
+    let createdBookingResponse: { booking?: { status?: string } } | null = null;
     try {
       const { startTimeIsoUtc, endTimeIsoUtc } = buildBookingRange({
         preferredDate: pendingBooking.formData.preferredDate ?? "",
@@ -507,6 +508,8 @@ function BookPageContent() {
         setPendingBooking(null);
         return;
       }
+
+      createdBookingResponse = (await res.json().catch(() => null)) as { booking?: { status?: string } } | null;
     } catch (e) {
       console.error("BOOKING CREATE API ERROR", e);
       const isDirect = !!lockedRoom && String(pendingBooking.room.id) === String(lockedRoom.id);
@@ -525,8 +528,6 @@ function BookPageContent() {
       return;
     }
 
-    const json = await res.json().catch(() => ({}));
-
     const booking = addBooking({
       form: pendingBooking.formData,
       room: pendingBooking.room,
@@ -534,7 +535,7 @@ function BookPageContent() {
     });
 
     // Use returned backend status (source of truth) for confirmation UI + My Bookings labels.
-    const serverStatusRaw = String((json as any)?.booking?.status ?? "");
+    const serverStatusRaw = String(createdBookingResponse?.booking?.status ?? "");
     const serverStatus = normalizeBookingStatus(serverStatusRaw) ?? booking.status;
     setBookingStatus(booking.id, serverStatus);
 
