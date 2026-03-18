@@ -10,7 +10,8 @@
     "rooms:convert": "node scripts/convertRoomsToJson.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.95.3",
+    "@supabase/ssr": "^0.9.0",
+    "@supabase/supabase-js": "^2.99.2",
     "framer-motion": "^12.34.0",
     "next": "16.1.6",
     "next-auth": "^4.24.13",

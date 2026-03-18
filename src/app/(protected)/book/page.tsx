@@ -143,6 +143,14 @@ const initialFormData: EventFormData = {
 
 const buildingsList = getBuildingsFromRooms(ROOMS);
 
+function toIsoRange(args: { preferredDate: string; timeSlot: string; durationMinutes: number }): { startTime: string; endTime: string } {
+  const { preferredDate, timeSlot, durationMinutes } = args;
+  const start = new Date(`${preferredDate}T${timeSlot}:00`);
+  const startMs = start.getTime();
+  const endMs = startMs + Math.max(0, durationMinutes) * 60 * 1000;
+  return { startTime: new Date(startMs).toISOString(), endTime: new Date(endMs).toISOString() };
+}
+
 function BookPageContent() {
   const searchParams = useSearchParams();
   const roomIdFromUrl = searchParams.get("roomId") ?? "";
@@ -253,8 +261,44 @@ function BookPageContent() {
     [formData, existingBookingsWithBlocked]
   );
 
-  const handleConfirmBooking = useCallback(() => {
+  const handleConfirmBooking = useCallback(async () => {
     if (!pendingBooking) return;
+    try {
+      const { startTime, endTime } = toIsoRange({
+        preferredDate: pendingBooking.formData.preferredDate ?? "",
+        timeSlot: pendingBooking.formData.timeSlot ?? "",
+        durationMinutes: pendingBooking.formData.durationMinutes ?? 60,
+      });
+
+      const res = await fetch("/api/bookings/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomId: String(pendingBooking.room.id),
+          eventName: String(pendingBooking.formData.eventName ?? ""),
+          organizerName: String(pendingBooking.formData.organizerName ?? ""),
+          groupSize: Number(pendingBooking.formData.groupSize ?? 0),
+          startTime,
+          endTime,
+        }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        const msg = String((json as any)?.error ?? "Booking failed.");
+        setDoubleBookingError(res.status === 400 ? msg : "Something went wrong creating your booking. Please try again.");
+        setShowConfirmModal(false);
+        setPendingBooking(null);
+        return;
+      }
+    } catch (e) {
+      console.error("BOOKING CREATE API ERROR", e);
+      setDoubleBookingError("Something went wrong creating your booking. Please try again.");
+      setShowConfirmModal(false);
+      setPendingBooking(null);
+      return;
+    }
+
     const booking = addBooking({
       form: pendingBooking.formData,
       room: pendingBooking.room,
@@ -283,7 +327,7 @@ function BookPageContent() {
     setStep(1);
   }, []);
 
-  const confirmLockedRoom = useCallback(() => {
+  const confirmLockedRoom = useCallback(async () => {
     if (!lockedRoom) return;
     const validation = validateRoomForBooking({ room: lockedRoom, form: formData, existingBookings: existingBookingsWithBlocked });
     if (!validation.ok) {
@@ -291,6 +335,40 @@ function BookPageContent() {
       return;
     }
     setSelectedRoom(lockedRoom);
+    try {
+      const { startTime, endTime } = toIsoRange({
+        preferredDate: formData.preferredDate ?? "",
+        timeSlot: formData.timeSlot ?? "",
+        durationMinutes: formData.durationMinutes ?? 60,
+      });
+
+      const res = await fetch("/api/bookings/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomId: String(lockedRoom.id),
+          eventName: String(formData.eventName ?? ""),
+          organizerName: String(formData.organizerName ?? ""),
+          groupSize: Number(formData.groupSize ?? 0),
+          startTime,
+          endTime,
+        }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        const msg = String((json as any)?.error ?? "Booking failed.");
+        setSelectedRoomError([msg]);
+        setSelectedRoom(null);
+        return;
+      }
+    } catch (e) {
+      console.error("BOOKING CREATE API ERROR", e);
+      setSelectedRoomError(["Something went wrong creating your booking. Please try again."]);
+      setSelectedRoom(null);
+      return;
+    }
+
     const booking = addBooking({
       form: formData,
       room: lockedRoom,

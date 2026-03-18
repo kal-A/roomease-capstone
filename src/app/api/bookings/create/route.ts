@@ -75,6 +75,22 @@ export async function POST(req: Request) {
     booker_name: session.user.name ?? null,
   };
 
+  // Validate timestamps are ISO-parsable to avoid silent DB errors.
+  const startMs = Date.parse(payload.start_time);
+  const endMs = Date.parse(payload.end_time);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+    return NextResponse.json(
+      { error: "Invalid start_time/end_time; must be ISO timestamps." },
+      { status: 400 }
+    );
+  }
+  if (endMs <= startMs) {
+    return NextResponse.json(
+      { error: "Invalid time range; end_time must be after start_time." },
+      { status: 400 }
+    );
+  }
+
   let sb;
   try {
     sb = supabaseServer();
@@ -93,7 +109,18 @@ export async function POST(req: Request) {
     .single();
 
   if (error) {
-    console.error("SUPABASE INSERT ERROR", error, payload);
+    console.error("SUPABASE INSERT ERROR", { error, payload });
+
+    // Handle exclusion constraint conflicts (e.g. bookings_no_overlap).
+    const code = (error as any)?.code;
+    const message = String((error as any)?.message ?? "");
+    if (code === "23P01" && message.toLowerCase().includes("bookings_no_overlap")) {
+      return NextResponse.json(
+        { error: "This room is already booked for that time." },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       {
         error: error.message,
@@ -104,6 +131,6 @@ export async function POST(req: Request) {
     );
   }
 
-  console.log("Inserted booking", data?.id);
+  console.log("Inserted booking", { id: data?.id, payload });
   return NextResponse.json({ booking: data });
 }

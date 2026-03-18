@@ -1,6 +1,7 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 import type { NextFetchEvent, NextRequest } from "next/server";
+import { updateSupabaseSession } from "@/utils/supabase/middleware";
 
 /** Routes that do not require authentication (Option B: "/" is protected) */
 const PUBLIC_PATHS = [
@@ -28,9 +29,20 @@ const authMiddleware = withAuth({
 export default function middleware(request: NextRequest, event: NextFetchEvent) {
   const pathname = request.nextUrl.pathname;
   if (isPublicPath(pathname)) {
-    return NextResponse.next();
+    // Public paths: allow through, and refresh Supabase session if present.
+    return updateSupabaseSession(request);
   }
-  return (authMiddleware as (req: NextRequest, ev: NextFetchEvent) => ReturnType<typeof authMiddleware>)(request, event);
+
+  const result = (authMiddleware as (req: NextRequest, ev: NextFetchEvent) => ReturnType<typeof authMiddleware>)(
+    request,
+    event
+  );
+
+  // If NextAuth middleware returned a response (e.g. redirect), return it as-is.
+  if (result) return result;
+
+  // Auth passed: allow through and refresh Supabase session if present.
+  return updateSupabaseSession(request);
 }
 
 export const config = {
