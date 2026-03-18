@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
 
 /** Request body (camelCase) from client */
 type CreateBookingBody = {
@@ -23,6 +24,7 @@ type BookingInsertPayload = {
   end_time: string;
   booker_email: string;
   booker_name: string | null;
+   status: string;
 };
 
 export async function POST(req: Request) {
@@ -64,6 +66,9 @@ export async function POST(req: Request) {
     );
   }
 
+  const requiresApproval = getRoomMetadataWithDefaults(roomId).approvalRequired === true;
+  const status = requiresApproval ? "pending" : "confirmed";
+
   const payload: BookingInsertPayload = {
     room_id: String(roomId),
     event_name: String(eventName),
@@ -73,6 +78,7 @@ export async function POST(req: Request) {
     end_time: String(endTime),
     booker_email: session.user.email,
     booker_name: session.user.name ?? null,
+    status,
   };
 
   // Validate timestamps are ISO-parsable to avoid silent DB errors.

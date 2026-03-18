@@ -1,3 +1,5 @@
+import { DateTime } from "luxon";
+
 export type BookingRangeInput = {
   /** Local date: YYYY-MM-DD */
   preferredDate: string;
@@ -35,21 +37,35 @@ export function buildBookingRange(input: BookingRangeInput): { startTimeIsoUtc: 
     throw new Error("Invalid booking range input");
   }
 
-  // Construct from numeric LOCAL parts (no ambiguous parsing).
-  // Date(year, monthIndex, day, hour, minute) creates a local-time Date.
-  const startLocal = new Date(ymd.year, ymd.month - 1, ymd.day, hm.hour, hm.minute, 0, 0);
-  const endLocal = new Date(startLocal.getTime() + durationMinutes * 60 * 1000);
+  // Interpret the selection in the campus timezone (America/Toronto).
+  const base = DateTime.fromObject(
+    {
+      year: ymd.year,
+      month: ymd.month,
+      day: ymd.day,
+      hour: hm.hour,
+      minute: hm.minute,
+      second: 0,
+      millisecond: 0,
+    },
+    { zone: "America/Toronto" }
+  );
 
-  const startTimeIsoUtc = startLocal.toISOString();
-  const endTimeIsoUtc = endLocal.toISOString();
+  const startUtc = base.toUTC();
+  const endUtc = base.plus({ minutes: durationMinutes }).toUTC();
+
+  const startTimeIsoUtc = startUtc.toISO() ?? startUtc.toUTC().toISO() ?? "";
+  const endTimeIsoUtc = endUtc.toISO() ?? endUtc.toUTC().toISO() ?? "";
 
   if (process.env.NODE_ENV !== "production") {
     // Temporary dev logs for debugging cross-device normalization.
     // eslint-disable-next-line no-console
-    console.log("[bookingTime] local", {
+    console.log("[bookingTime] toronto-range", {
       date: input.preferredDate,
       start: input.timeSlot,
       durationMinutes,
+      torontoStart: base.toISO(),
+      torontoEnd: base.plus({ minutes: durationMinutes }).toISO(),
       utcStart: startTimeIsoUtc,
       utcEnd: endTimeIsoUtc,
     });
@@ -61,8 +77,30 @@ export function buildBookingRange(input: BookingRangeInput): { startTimeIsoUtc: 
 export function buildLocalDayBoundsUtc(preferredDate: string): { dayStartUtcIso: string; dayEndUtcIso: string } {
   const ymd = parseYmd(preferredDate);
   if (!ymd) throw new Error("Invalid preferredDate");
-  const startLocal = new Date(ymd.year, ymd.month - 1, ymd.day, 0, 0, 0, 0);
-  const endLocal = new Date(ymd.year, ymd.month - 1, ymd.day, 23, 59, 59, 999);
-  return { dayStartUtcIso: startLocal.toISOString(), dayEndUtcIso: endLocal.toISOString() };
+
+  const start = DateTime.fromObject(
+    { year: ymd.year, month: ymd.month, day: ymd.day, hour: 0, minute: 0, second: 0, millisecond: 0 },
+    { zone: "America/Toronto" }
+  ).toUTC();
+  const end = DateTime.fromObject(
+    { year: ymd.year, month: ymd.month, day: ymd.day, hour: 23, minute: 59, second: 59, millisecond: 999 },
+    { zone: "America/Toronto" }
+  ).toUTC();
+
+  if (process.env.NODE_ENV !== "production") {
+    // eslint-disable-next-line no-console
+    console.log("[bookingTime] toronto-day-bounds", {
+      date: preferredDate,
+      torontoStart: start.setZone("America/Toronto").toISO(),
+      torontoEnd: end.setZone("America/Toronto").toISO(),
+      utcStart: start.toISO(),
+      utcEnd: end.toISO(),
+    });
+  }
+
+  const dayStartUtcIso = start.toISO() ?? start.toUTC().toISO() ?? "";
+  const dayEndUtcIso = end.toISO() ?? end.toUTC().toISO() ?? "";
+
+  return { dayStartUtcIso, dayEndUtcIso };
 }
 

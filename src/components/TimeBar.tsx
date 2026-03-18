@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
+import { DateTime } from "luxon";
 import { TIME_SLOTS_30MIN, timeToMinutes, timeRangesOverlap, formatTimeSlot } from "@/types/booking";
 
 export interface TimeBarBooking {
@@ -47,15 +48,15 @@ function minutesToSlot(minutes: number): string {
 }
 
 function localMinutesFromIso(isoUtc: string): number {
-  const d = new Date(isoUtc);
-  return d.getHours() * 60 + d.getMinutes();
+  const dt = DateTime.fromISO(isoUtc).setZone("America/Toronto");
+  return dt.hour * 60 + dt.minute;
 }
 
 function toLocalYmd(isoUtc: string): string {
-  const d = new Date(isoUtc);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+  const dt = DateTime.fromISO(isoUtc).setZone("America/Toronto");
+  const y = dt.year;
+  const m = String(dt.month).padStart(2, "0");
+  const day = String(dt.day).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
 
