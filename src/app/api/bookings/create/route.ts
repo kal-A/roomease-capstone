@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
 
 /** Request body (camelCase) from client */
 type CreateBookingBody = {
@@ -66,9 +65,6 @@ export async function POST(req: Request) {
     );
   }
 
-  const requiresApproval = getRoomMetadataWithDefaults(roomId).approvalRequired === true;
-  const status = requiresApproval ? "pending" : "confirmed";
-
   const payload: BookingInsertPayload = {
     room_id: String(roomId),
     event_name: String(eventName),
@@ -78,7 +74,7 @@ export async function POST(req: Request) {
     end_time: String(endTime),
     booker_email: session.user.email,
     booker_name: session.user.name ?? null,
-    status,
+    status: "confirmed",
   };
 
   // Validate timestamps are ISO-parsable to avoid silent DB errors.
@@ -97,6 +93,8 @@ export async function POST(req: Request) {
     );
   }
 
+  const isAdmin = session.user.email?.toLowerCase() === "fvalli@uwaterloo.ca";
+
   let sb;
   try {
     sb = supabaseServer();
@@ -107,6 +105,31 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+
+  // Fetch the room from Supabase so we can read room.requires_approval.
+  const { data: roomRow, error: roomError } = await sb
+    .from("rooms")
+    .select("id, requires_approval")
+    .eq("id", String(roomId))
+    .single();
+
+  if (roomError) {
+    console.error("ROOM LOOKUP ERROR", { roomError, roomId: String(roomId), isAdmin });
+    return NextResponse.json({ error: "Failed to look up room approval requirements." }, { status: 500 });
+  }
+
+  const roomRequiresApproval = roomRow?.requires_approval === true;
+  const resolvedStatus = roomRequiresApproval ? (isAdmin ? "approved" : "pending") : "confirmed";
+
+  console.log("BOOKING CREATE DEV", {
+    sessionEmail: session.user.email ?? null,
+    isAdmin,
+    roomId: String(roomId),
+    roomRequiresApproval,
+    resolvedStatus,
+  });
+
+  payload.status = resolvedStatus;
 
   const { data, error } = await sb
     .from("bookings")

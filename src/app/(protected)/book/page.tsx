@@ -16,7 +16,7 @@ import {
   TIME_SLOTS_30MIN,
 } from "@/types/booking";
 import { furnitureLabelsFromCodes } from "@/lib/furniture";
-import { useBookings } from "@/lib/bookingsStore";
+import { useBookings, type BookingStatus } from "@/lib/bookingsStore";
 import { getBlockedAsBookings } from "@/lib/blockingStore";
 import Link from "next/link";
 import { ConfirmationPage } from "@/components/ConfirmationPage";
@@ -78,6 +78,15 @@ function getMatchingRooms(formData: EventFormData): Room[] {
   };
 
   return [...filtered].sort((a, b) => score(b) - score(a));
+}
+
+function normalizeBookingStatus(raw: string | null | undefined): BookingStatus | null {
+  const v = String(raw ?? "").toLowerCase().trim();
+  if (v === "pending") return "pending";
+  if (v === "approved") return "approved";
+  if (v === "denied") return "denied";
+  if (v === "confirmed") return "confirmed";
+  return null;
 }
 
 function validateRoomForBooking(args: {
@@ -162,7 +171,7 @@ function localMinutesFromIso(isoUtc: string): number {
 function BookPageContent() {
   const searchParams = useSearchParams();
   const roomIdFromUrl = searchParams.get("roomId") ?? "";
-  const { bookings, addBooking } = useBookings();
+  const { bookings, addBooking, setBookingStatus } = useBookings();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<EventFormData>(() => ({
     ...initialFormData,
@@ -170,6 +179,7 @@ function BookPageContent() {
   }));
   const [confirmationNumber, setConfirmationNumber] = useState("");
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [selectedBookingStatus, setSelectedBookingStatus] = useState<BookingStatus | null>(null);
   const [doubleBookingError, setDoubleBookingError] = useState<string | null>(null);
   const [doubleBookingErrorContext, setDoubleBookingErrorContext] = useState<{ isMine: boolean; organizerName: string; timeLabel: string } | null>(null);
   const [selectedRoomError, setSelectedRoomError] = useState<string[] | null>(null);
@@ -347,6 +357,7 @@ function BookPageContent() {
     setDoubleBookingErrorContext(null);
     setSelectedRoomError(null);
     setDirectBookingError(null);
+    setSelectedBookingStatus(null);
     setStep(2);
   }, []);
 
@@ -514,11 +525,20 @@ function BookPageContent() {
       return;
     }
 
+    const json = await res.json().catch(() => ({}));
+
     const booking = addBooking({
       form: pendingBooking.formData,
       room: pendingBooking.room,
       organizerEmail: session?.user?.email ?? undefined,
     });
+
+    // Use returned backend status (source of truth) for confirmation UI + My Bookings labels.
+    const serverStatusRaw = String((json as any)?.booking?.status ?? "");
+    const serverStatus = normalizeBookingStatus(serverStatusRaw) ?? booking.status;
+    setBookingStatus(booking.id, serverStatus);
+
+    setSelectedBookingStatus(serverStatus);
     setConfirmationNumber(booking.confirmationNumber);
     setSelectedRoom(pendingBooking.room);
     setDoubleBookingError(null);
@@ -556,13 +576,14 @@ function BookPageContent() {
         // ignore
       }
     }
-  }, [pendingBooking, addBooking, session?.user?.email]);
+  }, [pendingBooking, addBooking, session?.user?.email, setBookingStatus]);
 
   const handleBack = useCallback(() => {
     setDoubleBookingError(null);
     setDoubleBookingErrorContext(null);
     setSelectedRoomError(null);
     setDirectBookingError(null);
+    setSelectedBookingStatus(null);
     setStep(1);
   }, []);
 
@@ -572,6 +593,7 @@ function BookPageContent() {
     setConfirmationNumber("");
     setDirectBookingError(null);
     setDoubleBookingErrorContext(null);
+    setSelectedBookingStatus(null);
     setStep(1);
   }, []);
 
@@ -787,6 +809,7 @@ function BookPageContent() {
               confirmationNumber={confirmationNumber}
               onBookAnother={handleBookAnother}
               bookedByName={session?.user?.name ?? session?.user?.email ?? null}
+              bookingStatus={selectedBookingStatus}
             />
           </motion.div>
         )}
