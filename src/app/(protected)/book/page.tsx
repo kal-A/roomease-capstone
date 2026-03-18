@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ROOMS, getBuildingsFromRooms } from "@/data/rooms";
 import type { EventFormData, Room } from "@/types/booking";
@@ -23,6 +23,9 @@ import { ConfirmationPage } from "@/components/ConfirmationPage";
 import { EventForm } from "@/components/EventForm";
 import { ProgressStepper } from "@/components/ProgressStepper";
 import { RoomRecommendation } from "@/components/RoomRecommendation";
+import type { TimeBarBooking } from "@/components/TimeBar";
+import { buildBookingRange } from "@/lib/bookingTime";
+import { DateTime } from "luxon";
 
 const TOTAL_STEPS_FULL = 3;
 const TOTAL_STEPS_DIRECT = 2;
@@ -143,6 +146,19 @@ const initialFormData: EventFormData = {
 
 const buildingsList = getBuildingsFromRooms(ROOMS);
 
+function minutesToLabel(totalMin: number): string {
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
+  return `${h12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
+function localMinutesFromIso(isoUtc: string): number {
+  const dt = DateTime.fromISO(isoUtc).setZone("America/Toronto");
+  return dt.hour * 60 + dt.minute;
+}
+
 function BookPageContent() {
   const searchParams = useSearchParams();
   const roomIdFromUrl = searchParams.get("roomId") ?? "";
@@ -155,11 +171,45 @@ function BookPageContent() {
   const [confirmationNumber, setConfirmationNumber] = useState("");
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [doubleBookingError, setDoubleBookingError] = useState<string | null>(null);
+  const [doubleBookingErrorContext, setDoubleBookingErrorContext] = useState<{ isMine: boolean; organizerName: string; timeLabel: string } | null>(null);
   const [selectedRoomError, setSelectedRoomError] = useState<string[] | null>(null);
   const [directBookingError, setDirectBookingError] = useState<string | null>(null);
   const [roomsLoading, setRoomsLoading] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingBooking, setPendingBooking] = useState<{ room: Room; formData: EventFormData } | null>(null);
+
+  const directErrorRef = useRef<HTMLDivElement | null>(null);
+  const bookingErrorRef = useRef<HTMLDivElement | null>(null);
+  const lastErrorScrollKeyRef = useRef<string>("");
+  const [directErrorPulse, setDirectErrorPulse] = useState(0);
+  const [bookingErrorPulse, setBookingErrorPulse] = useState(0);
+
+  const scrollToBookingError = (kind: "direct" | "booking", errorMessage: string) => {
+    if (typeof window === "undefined") return;
+    try {
+      document.body.style.overflow = "";
+    } catch {
+      // ignore
+    }
+
+    const ref = kind === "direct" ? directErrorRef : bookingErrorRef;
+    const errorKey = `${kind}:${errorMessage.trim()}`;
+
+    // Prevent double scroll/jitter: only scroll for a new error.
+    if (lastErrorScrollKeyRef.current === errorKey) return;
+    lastErrorScrollKeyRef.current = errorKey;
+
+    if (kind === "direct") setDirectErrorPulse((p) => p + 1);
+    if (kind === "booking") setBookingErrorPulse((p) => p + 1);
+
+    // Small delay lets the error mount before we scroll + focus.
+    window.setTimeout(() => {
+      const el = ref.current;
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      (el as HTMLElement).focus?.();
+    }, 75);
+  };
 
   const matchingRooms = useMemo(() => getMatchingRooms(formData), [formData]);
   const lockedRoom = useMemo(() => {
@@ -179,6 +229,12 @@ function BookPageContent() {
   }, [showConfirmModal]);
 
   useEffect(() => {
+    if (!directBookingError && !doubleBookingError) {
+      lastErrorScrollKeyRef.current = "";
+    }
+  }, [directBookingError, doubleBookingError]);
+
+  useEffect(() => {
     if (step === 2 && !lockedRoom) {
       setRoomsLoading(true);
       const t = setTimeout(() => setRoomsLoading(false), 400);
@@ -188,6 +244,7 @@ function BookPageContent() {
 
   const totalSteps = lockedRoom ? TOTAL_STEPS_DIRECT : TOTAL_STEPS_FULL;
   const { data: session } = useSession();
+  const [liveRoomBookings, setLiveRoomBookings] = useState<TimeBarBooking[]>([]);
   const existingBookings = useMemo(
     () =>
       bookings.map((b) => ({
@@ -207,8 +264,87 @@ function BookPageContent() {
     return [...existingBookings, ...blocked];
   }, [existingBookings, lockedRoom, formData.preferredDate]);
 
+  const directConflictContext = useMemo(() => {
+    if (!directBookingError || !lockedRoom) return null;
+    const msg = directBookingError.toLowerCase();
+    const isTimeConflict = msg.includes("booked") || msg.includes("blocked");
+    if (!isTimeConflict) return null;
+    if (!formData.timeSlot) return null;
+
+    const startM = timeToMinutes(formData.timeSlot);
+    const durationM = formData.durationMinutes ?? 60;
+    const endM = startM + durationM;
+
+    const overlaps = liveRoomBookings
+      .filter((b) => {
+        const bStart = localMinutesFromIso(b.startTimeIsoUtc);
+        const bEnd = localMinutesFromIso(b.endTimeIsoUtc);
+        return timeRangesOverlap(bStart, bEnd - bStart, startM, durationM);
+      })
+      .sort((a, b) => localMinutesFromIso(a.startTimeIsoUtc) - localMinutesFromIso(b.startTimeIsoUtc));
+
+    const first = overlaps[0];
+    if (!first) return null;
+
+    return {
+      isMine: Boolean(first.isMine),
+      organizerName: first.organizerName ?? "Unknown Organizer",
+      timeLabel: `${minutesToLabel(startM)}–${minutesToLabel(endM)}`,
+    };
+  }, [directBookingError, lockedRoom, formData.timeSlot, formData.durationMinutes, liveRoomBookings]);
+
+  // If the user picks one of the "closest available options" and the new selection is valid,
+  // automatically clear the top-level conflict error (so they aren't blocked by stale UI state).
+  useEffect(() => {
+    if (!directBookingError || !lockedRoom) return;
+    const isTimeConflict = /booked|blocked/i.test(directBookingError);
+    if (!isTimeConflict) return;
+    if (directConflictContext === null) {
+      setDirectBookingError(null);
+    }
+  }, [directBookingError, directConflictContext, lockedRoom]);
+
+  // Live availability source of truth for direct booking timeline.
+  useEffect(() => {
+    if (!lockedRoom || !formData.preferredDate) {
+      setLiveRoomBookings([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const params = new URLSearchParams({
+          roomId: String(lockedRoom.id),
+          date: String(formData.preferredDate),
+        });
+        const res = await fetch(`/api/bookings/by-room?${params.toString()}`);
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) return;
+        const rows = Array.isArray((json as any)?.bookings) ? (json as any).bookings : [];
+        const mapped: TimeBarBooking[] = rows.map((b: any) => ({
+          roomId: String(b.room_id),
+          startTimeIsoUtc: String(b.start_time),
+          endTimeIsoUtc: String(b.end_time),
+          organizerName: String(b.organizer_name ?? ""),
+          bookerName: b.booker_name ?? null,
+          bookerEmail: String(b.booker_email ?? ""),
+          status: String(b.status ?? ""),
+          eventName: b.event_name ?? null,
+          isMine: Boolean(b.is_mine),
+        }));
+        if (!cancelled) setLiveRoomBookings(mapped);
+      } catch (e) {
+        console.error("LIVE AVAILABILITY FETCH ERROR", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [lockedRoom, formData.preferredDate]);
+
   const handleFormSubmit = useCallback(() => {
     setDoubleBookingError(null);
+    setDoubleBookingErrorContext(null);
     setSelectedRoomError(null);
     setDirectBookingError(null);
     setStep(2);
@@ -220,7 +356,9 @@ function BookPageContent() {
     setDirectBookingError(null);
     const capacityOk = lockedRoom.capacity >= (formData.groupSize ?? 0);
     if (!capacityOk) {
-      setDirectBookingError("This room does not fit your group size.");
+      const msg = "This room does not fit your group size.";
+      setDirectBookingError(msg);
+      scrollToBookingError("direct", msg);
       return;
     }
     const overlap = existingBookingsWithBlocked.some((b) => {
@@ -233,7 +371,9 @@ function BookPageContent() {
       return timeRangesOverlap(existingStart, existingDuration, startM, durationM);
     });
     if (overlap) {
-      setDirectBookingError("This room is already booked or blocked for that time.");
+      const msg = "This room is already booked or blocked for that time.";
+      setDirectBookingError(msg);
+      scrollToBookingError("direct", msg);
       return;
     }
     setPendingBooking({ room: lockedRoom, formData });
@@ -244,17 +384,136 @@ function BookPageContent() {
     (room: Room) => {
       const validation = validateRoomForBooking({ room, form: formData, existingBookings: existingBookingsWithBlocked });
       if (!validation.ok) {
-        setDoubleBookingError(validation.errors[0] ?? "This room cannot be booked with the selected constraints.");
+        const msg = validation.errors[0] ?? "This room cannot be booked with the selected constraints.";
+        setDoubleBookingError(msg);
+
+        const isTimeConflict = /booked|blocked/i.test(msg);
+        if (isTimeConflict && formData.preferredDate && formData.timeSlot) {
+          const startM = timeToMinutes(formData.timeSlot);
+          const durationM = formData.durationMinutes ?? 60;
+          const endM = startM + durationM;
+
+          const overlaps = existingBookingsWithBlocked
+            .filter((b) => {
+              if (b.roomId !== String(room.id)) return false;
+              if (b.preferredDate !== formData.preferredDate) return false;
+              const existingStart = timeToMinutes(b.timeSlot);
+              const existingDuration = b.durationMinutes ?? 60;
+              return timeRangesOverlap(existingStart, existingDuration, startM, durationM);
+            })
+            .sort((a, b) => timeToMinutes(a.timeSlot) - timeToMinutes(b.timeSlot));
+
+          const first = overlaps[0];
+          if (first) {
+            const isMine = Boolean(session?.user?.email) && String(first.organizerEmail ?? "") === String(session?.user?.email);
+            setDoubleBookingErrorContext({
+              isMine,
+              organizerName: String(first.organizerName ?? "Unknown Organizer"),
+              timeLabel: `${minutesToLabel(startM)}–${minutesToLabel(endM)}`,
+            });
+          } else {
+            setDoubleBookingErrorContext(null);
+          }
+        } else {
+          setDoubleBookingErrorContext(null);
+        }
         return;
       }
       setPendingBooking({ room, formData });
       setShowConfirmModal(true);
     },
-    [formData, existingBookingsWithBlocked]
+    [formData, existingBookingsWithBlocked, session?.user?.email]
   );
 
-  const handleConfirmBooking = useCallback(() => {
+  const handleConfirmBooking = useCallback(async () => {
     if (!pendingBooking) return;
+    try {
+      const { startTimeIsoUtc, endTimeIsoUtc } = buildBookingRange({
+        preferredDate: pendingBooking.formData.preferredDate ?? "",
+        timeSlot: pendingBooking.formData.timeSlot ?? "",
+        durationMinutes: pendingBooking.formData.durationMinutes ?? 60,
+      });
+
+      const res = await fetch("/api/bookings/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomId: String(pendingBooking.room.id),
+          eventName: String(pendingBooking.formData.eventName ?? ""),
+          organizerName: String(pendingBooking.formData.organizerName ?? ""),
+          groupSize: Number(pendingBooking.formData.groupSize ?? 0),
+          startTime: startTimeIsoUtc,
+          endTime: endTimeIsoUtc,
+        }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        const msg = String((json as any)?.error ?? "Booking failed.");
+        const isDirect = !!lockedRoom && String(pendingBooking.room.id) === String(lockedRoom.id);
+        if (isDirect) {
+          const finalMsg = res.status === 400 ? msg : "Something went wrong creating your booking. Please try again.";
+          setDirectBookingError(finalMsg);
+          scrollToBookingError("direct", finalMsg);
+        } else {
+          const finalMsg = res.status === 400 ? msg : "Something went wrong creating your booking. Please try again.";
+          setDoubleBookingError(finalMsg);
+
+          const isTimeConflict = /booked|blocked/i.test(finalMsg);
+          if (isTimeConflict && pendingBooking.formData.preferredDate && pendingBooking.formData.timeSlot) {
+            const startM = timeToMinutes(pendingBooking.formData.timeSlot);
+            const durationM = pendingBooking.formData.durationMinutes ?? 60;
+            const endM = startM + durationM;
+
+            const overlaps = existingBookingsWithBlocked
+              .filter((b) => {
+                if (b.roomId !== String(pendingBooking.room.id)) return false;
+                if (b.preferredDate !== pendingBooking.formData.preferredDate) return false;
+                const existingStart = timeToMinutes(b.timeSlot);
+                const existingDuration = b.durationMinutes ?? 60;
+                return timeRangesOverlap(existingStart, existingDuration, startM, durationM);
+              })
+              .sort((a, b) => timeToMinutes(a.timeSlot) - timeToMinutes(b.timeSlot));
+
+            const first = overlaps[0];
+            if (first) {
+              const isMine = Boolean(session?.user?.email) && String(first.organizerEmail ?? "") === String(session?.user?.email);
+              setDoubleBookingErrorContext({
+                isMine,
+                organizerName: String(first.organizerName ?? "Unknown Organizer"),
+                timeLabel: `${minutesToLabel(startM)}–${minutesToLabel(endM)}`,
+              });
+            } else {
+              setDoubleBookingErrorContext(null);
+            }
+          } else {
+            setDoubleBookingErrorContext(null);
+          }
+
+          scrollToBookingError("booking", finalMsg);
+        }
+        setShowConfirmModal(false);
+        setPendingBooking(null);
+        return;
+      }
+    } catch (e) {
+      console.error("BOOKING CREATE API ERROR", e);
+      const isDirect = !!lockedRoom && String(pendingBooking.room.id) === String(lockedRoom.id);
+      if (isDirect) {
+        const finalMsg = "Something went wrong creating your booking. Please try again.";
+        setDirectBookingError(finalMsg);
+        scrollToBookingError("direct", finalMsg);
+      } else {
+        const finalMsg = "Something went wrong creating your booking. Please try again.";
+        setDoubleBookingError(finalMsg);
+        setDoubleBookingErrorContext(null);
+        scrollToBookingError("booking", finalMsg);
+      }
+      setShowConfirmModal(false);
+      setPendingBooking(null);
+      return;
+    }
+
     const booking = addBooking({
       form: pendingBooking.formData,
       room: pendingBooking.room,
@@ -263,13 +522,45 @@ function BookPageContent() {
     setConfirmationNumber(booking.confirmationNumber);
     setSelectedRoom(pendingBooking.room);
     setDoubleBookingError(null);
+    setDoubleBookingErrorContext(null);
+    setDirectBookingError(null);
     setShowConfirmModal(false);
     setPendingBooking(null);
     setStep(3);
+
+    // Refresh live availability immediately after a successful booking.
+    if (lockedRoom && pendingBooking.formData.preferredDate) {
+      try {
+        const params = new URLSearchParams({
+          roomId: String(lockedRoom.id),
+          date: String(pendingBooking.formData.preferredDate),
+        });
+        const res = await fetch(`/api/bookings/by-room?${params.toString()}`);
+        const json = await res.json().catch(() => ({}));
+        if (res.ok) {
+          const rows = Array.isArray((json as any)?.bookings) ? (json as any).bookings : [];
+          const mapped: TimeBarBooking[] = rows.map((b: any) => ({
+            roomId: String(b.room_id),
+            startTimeIsoUtc: String(b.start_time),
+            endTimeIsoUtc: String(b.end_time),
+            organizerName: String(b.organizer_name ?? ""),
+            bookerName: b.booker_name ?? null,
+            bookerEmail: String(b.booker_email ?? ""),
+            status: String(b.status ?? ""),
+            eventName: b.event_name ?? null,
+            isMine: Boolean(b.is_mine),
+          }));
+          setLiveRoomBookings(mapped);
+        }
+      } catch {
+        // ignore
+      }
+    }
   }, [pendingBooking, addBooking, session?.user?.email]);
 
   const handleBack = useCallback(() => {
     setDoubleBookingError(null);
+    setDoubleBookingErrorContext(null);
     setSelectedRoomError(null);
     setDirectBookingError(null);
     setStep(1);
@@ -280,10 +571,11 @@ function BookPageContent() {
     setSelectedRoom(null);
     setConfirmationNumber("");
     setDirectBookingError(null);
+    setDoubleBookingErrorContext(null);
     setStep(1);
   }, []);
 
-  const confirmLockedRoom = useCallback(() => {
+  const confirmLockedRoom = useCallback(async () => {
     if (!lockedRoom) return;
     const validation = validateRoomForBooking({ room: lockedRoom, form: formData, existingBookings: existingBookingsWithBlocked });
     if (!validation.ok) {
@@ -291,6 +583,40 @@ function BookPageContent() {
       return;
     }
     setSelectedRoom(lockedRoom);
+    try {
+      const { startTimeIsoUtc, endTimeIsoUtc } = buildBookingRange({
+        preferredDate: formData.preferredDate ?? "",
+        timeSlot: formData.timeSlot ?? "",
+        durationMinutes: formData.durationMinutes ?? 60,
+      });
+
+      const res = await fetch("/api/bookings/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomId: String(lockedRoom.id),
+          eventName: String(formData.eventName ?? ""),
+          organizerName: String(formData.organizerName ?? ""),
+          groupSize: Number(formData.groupSize ?? 0),
+          startTime: startTimeIsoUtc,
+          endTime: endTimeIsoUtc,
+        }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        const msg = String((json as any)?.error ?? "Booking failed.");
+        setSelectedRoomError([msg]);
+        setSelectedRoom(null);
+        return;
+      }
+    } catch (e) {
+      console.error("BOOKING CREATE API ERROR", e);
+      setSelectedRoomError(["Something went wrong creating your booking. Please try again."]);
+      setSelectedRoom(null);
+      return;
+    }
+
     const booking = addBooking({
       form: formData,
       room: lockedRoom,
@@ -336,32 +662,68 @@ function BookPageContent() {
                 </div>
               </div>
             )}
-            {directBookingError && (
-              <motion.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-6 rounded-xl border border-[var(--danger)]/50 bg-[var(--dangerBg)] p-4"
-                style={{ borderRadius: "var(--radiusLg)" }}
-                role="alert"
-              >
-                <div className="flex items-start gap-2.5">
-                  <svg className="h-5 w-5 shrink-0 text-[var(--danger)] mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <p className="text-sm font-semibold text-[var(--danger)] leading-relaxed">{directBookingError}</p>
+            <AnimatePresence>
+              {directBookingError && (
+                <motion.div
+                  key={`direct-error-${directErrorPulse}`}
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0, x: [0, -2, 2, -2, 0] }}
+                  exit={{ opacity: 0, y: -6, transition: { duration: 0.15 } }}
+                  transition={{ duration: 0.22 }}
+                  id="direct-booking-error"
+                  tabIndex={-1}
+                  ref={directErrorRef}
+                  className="mb-6 scroll-mt-24 rounded-lg border border-[var(--danger)]/60 bg-[var(--dangerBg)] shadow-[var(--shadowLg)] p-4"
+                  style={{ borderRadius: "var(--radiusLg)" }}
+                  role="alert"
+                >
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-[var(--danger)]/15 border border-[var(--danger)]/30">
+                    <svg className="h-5 w-5 text-[var(--danger)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86l-7.2 12.49A2 2 0 0 0 4.82 19h14.36a2 2 0 0 0 1.73-2.65l-7.2-12.49a2 2 0 0 0-3.46 0z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-bold text-[var(--text)]">
+                      {directConflictContext ? "Time slot unavailable" : "Booking couldn’t be confirmed"}
+                    </div>
+                    {directConflictContext ? (
+                      <>
+                        <div className="mt-0.5 text-xs font-medium text-[var(--textSecondary)]">
+                          {directConflictContext.isMine
+                            ? "You already have this room booked for that time."
+                            : "This room is already booked for that time."}
+                        </div>
+                        <div className="mt-2 text-xs text-[var(--textSecondary)]">Try a different time or choose one of the options below.</div>
+                        <div className="mt-2 text-[10px] font-medium text-[var(--textMuted)]">
+                          {directConflictContext.isMine
+                            ? `Your booking · ${directConflictContext.timeLabel}`
+                            : `Booked by ${directConflictContext.organizerName} · ${directConflictContext.timeLabel}`}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="mt-1 text-xs font-medium text-[var(--textSecondary)]">{directBookingError}</div>
+                        <div className="mt-2 text-xs text-[var(--textSecondary)]">Review the details and try again.</div>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </motion.div>
-            )}
-            <EventForm
-              data={formData}
-              onChange={setFormData}
-              onSubmit={lockedRoom ? handleDirectBookingSubmit : handleFormSubmit}
-              buildings={buildingsList}
-              directBooking={!!lockedRoom}
-              roomId={lockedRoom?.id}
-              existingBookings={existingBookingsWithBlocked}
-              viewerEmail={session?.user?.email ?? null}
-            />
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <div className={directBookingError ? "opacity-95 transition-opacity duration-200" : ""}>
+              <EventForm
+                data={formData}
+                onChange={setFormData}
+                onSubmit={lockedRoom ? handleDirectBookingSubmit : handleFormSubmit}
+                buildings={buildingsList}
+                directBooking={!!lockedRoom}
+                roomId={lockedRoom?.id}
+                existingBookings={lockedRoom ? liveRoomBookings : []}
+                viewerEmail={session?.user?.email ?? null}
+              />
+            </div>
           </motion.div>
         )}
 
@@ -394,13 +756,18 @@ function BookPageContent() {
                 ))}
               </div>
             ) : (
-            <RoomRecommendation
-              formData={formData}
-              matchingRooms={matchingRooms}
-              onSelectRoom={handleSelectRoom}
-              onBack={handleBack}
-              doubleBookingError={doubleBookingError}
-            />
+            <div className={doubleBookingError ? "opacity-95 transition-opacity duration-200" : ""}>
+              <RoomRecommendation
+                formData={formData}
+                matchingRooms={matchingRooms}
+                onSelectRoom={handleSelectRoom}
+                onBack={handleBack}
+                doubleBookingError={doubleBookingError}
+                bookingErrorRef={bookingErrorRef}
+                errorPulseKey={bookingErrorPulse}
+                bookingConflictContext={doubleBookingErrorContext}
+              />
+            </div>
             )}
           </motion.div>
         )}
@@ -419,6 +786,7 @@ function BookPageContent() {
               room={selectedRoom}
               confirmationNumber={confirmationNumber}
               onBookAnother={handleBookAnother}
+              bookedByName={session?.user?.name ?? session?.user?.email ?? null}
             />
           </motion.div>
         )}

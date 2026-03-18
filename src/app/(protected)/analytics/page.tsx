@@ -74,15 +74,8 @@ function useCoreAnalytics(bookings: ReturnType<typeof useBookings>["bookings"]) 
 export default function AnalyticsPage() {
   const { bookings } = useBookings();
   const { data: session } = useSession();
-  const isAdmin = session?.user?.isAdmin ?? false;
   const email = session?.user?.email ?? null;
-
-  const [mode, setMode] = useState<"global" | "user">(() => (isAdmin ? "global" : "user"));
-
-  const scopedBookings = useMemo(
-    () => getScopedBookings(bookings, mode === "global" ? "global" : "user", email),
-    [bookings, mode, email]
-  );
+  const scopedBookings = useMemo(() => getScopedBookings(bookings, "user", email), [bookings, email]);
 
   const { byBuildingList, byRoomList, capacityData } = useCoreAnalytics(scopedBookings);
   const peakHoursData = useMemo(() => getPeakHours(scopedBookings), [scopedBookings]);
@@ -102,37 +95,9 @@ export default function AnalyticsPage() {
             Booking Analytics
           </h1>
           <p className="mt-2 text-lg text-[var(--textSecondary)]">
-            {mode === "global" && isAdmin
-              ? "Global usage across all rooms and organizers."
-              : "Your own booking patterns across rooms, buildings, and organizers."}
+            Your own booking patterns across rooms, buildings, and organizers.
           </p>
         </div>
-        {isAdmin && (
-          <div className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-1 py-1 text-xs font-medium text-[var(--textSecondary)] shadow-sm">
-            <button
-              type="button"
-              onClick={() => setMode("global")}
-              className={`px-4 py-1.5 rounded-full transition-all ${
-                mode === "global"
-                  ? "bg-[var(--primary)] text-[var(--primaryText)] shadow-sm"
-                  : "text-[var(--textSecondary)]"
-              }`}
-            >
-              Global Analytics
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("user")}
-              className={`px-4 py-1.5 rounded-full transition-all ${
-                mode === "user"
-                  ? "bg-[var(--primary)] text-[var(--primaryText)] shadow-sm"
-                  : "text-[var(--textSecondary)]"
-              }`}
-            >
-              My Analytics
-            </button>
-          </div>
-        )}
       </div>
 
       {!hasData ? (
@@ -144,9 +109,7 @@ export default function AnalyticsPage() {
           }
           title="No analytics yet"
           description={
-            mode === "global" && isAdmin
-              ? "Global analytics will appear once there are bookings in the system."
-              : "Your analytics will appear once you have at least one booking."
+            "Your analytics will appear once you have at least one booking."
           }
           suggestion="Book a room to see buildings, rooms, and organizer trends."
           action={
@@ -173,7 +136,7 @@ export default function AnalyticsPage() {
           >
             <div className="mb-6 flex items-center gap-2">
               <h2 className="text-xl font-semibold tracking-tight text-[var(--text)]">
-                {mode === "global" ? "Most Booked Buildings" : "My Most Used Buildings"}
+                My Most Used Buildings
               </h2>
               {byBuildingList.length > 0 && (
                 <span className="rounded-md border border-[var(--primary)]/40 bg-[var(--primary)]/10 px-2 py-0.5 text-xs font-medium text-[var(--primary)]">
@@ -228,7 +191,7 @@ export default function AnalyticsPage() {
             className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">
-              {mode === "global" ? "Most Booked Rooms" : "My Most Booked Rooms"}
+              My Most Booked Rooms
             </h2>
             <ul className="space-y-3">
               {byRoomList.map(({ roomId, roomName, building, count }, i) => (
@@ -307,7 +270,7 @@ export default function AnalyticsPage() {
             className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">
-              {mode === "global" ? "Peak Booking Hours" : "My Most Common Time Slots"}
+              My Most Common Time Slots
             </h2>
             <div className="min-h-[200px] flex-1 flex items-stretch">
               <ResponsiveContainer width="100%" height="100%">
@@ -347,7 +310,7 @@ export default function AnalyticsPage() {
             className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">
-              {mode === "global" ? "Top Clubs / Organizers" : "My Most Used Organizer Names"}
+              My Most Used Organizer Names
             </h2>
             {topClubs.length === 0 ? (
               <p className="text-sm text-[var(--textSecondary)]">No organizer data yet.</p>
@@ -381,7 +344,7 @@ export default function AnalyticsPage() {
             className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0 md:col-span-2"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">
-              {mode === "global" ? "Booking Trends Over Time" : "My Booking Activity Over Time"}
+              My Booking Activity Over Time
             </h2>
             <div className="min-h-[200px] flex-1 flex items-stretch">
               {trendsData.length === 0 ? (

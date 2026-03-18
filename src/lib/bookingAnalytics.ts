@@ -1,5 +1,4 @@
 import type { Booking } from "@/lib/bookingsStore";
-import { timeToMinutes } from "@/types/booking";
 
 export type ClubKey = string;
 
@@ -197,5 +196,91 @@ export function getTopTimeSlots(bookings: Booking[], limit = 5): TopCountEntry[]
     .map(([key, count]) => ({ key, label: key, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, limit);
+}
+
+export type DateRangePreset = "7d" | "30d" | "90d" | "all";
+
+function parseYmd(ymd: string): number | null {
+  // preferredDate is YYYY-MM-DD
+  if (!ymd) return null;
+  const t = Date.parse(`${ymd}T00:00:00Z`);
+  return Number.isFinite(t) ? t : null;
+}
+
+export function filterBookingsByDateRange(bookings: Booking[], preset: DateRangePreset): Booking[] {
+  if (preset === "all") return bookings;
+  const days = preset === "7d" ? 7 : preset === "30d" ? 30 : 90;
+  const now = Date.now();
+  const cutoff = now - days * 24 * 60 * 60 * 1000;
+  return bookings.filter((b) => {
+    const t = parseYmd(b.preferredDate);
+    return t !== null && t >= cutoff;
+  });
+}
+
+export function getApprovalFunnel(bookings: Booking[]): {
+  submitted: number;
+  pending: number;
+  approved: number;
+  denied: number;
+  confirmed: number;
+} {
+  let submitted = bookings.length;
+  let pending = 0;
+  let approved = 0;
+  let denied = 0;
+  let confirmed = 0;
+  for (const b of bookings) {
+    if (b.status === "pending") pending += 1;
+    else if (b.status === "approved") approved += 1;
+    else if (b.status === "denied") denied += 1;
+    else if (b.status === "confirmed") confirmed += 1;
+  }
+  return { submitted, pending, approved, denied, confirmed };
+}
+
+export function getActiveClubs(bookings: Booking[]): number {
+  const set = new Set<string>();
+  for (const b of bookings) {
+    const { key } = normalizeOrganizer(b.organizerName);
+    set.add(key);
+  }
+  return set.size;
+}
+
+export function getAvgBookingsPerDay(bookings: Booking[]): number {
+  const days = new Set<string>();
+  for (const b of bookings) {
+    if (b.preferredDate) days.add(b.preferredDate);
+  }
+  if (days.size === 0) return 0;
+  return bookings.length / days.size;
+}
+
+export function getPeakBookingDayAndHour(bookings: Booking[]): { peakDay: string | null; peakHour: string | null } {
+  const byDay = new Map<string, number>();
+  const byHour = new Map<string, number>();
+  for (const b of bookings) {
+    if (b.preferredDate) byDay.set(b.preferredDate, (byDay.get(b.preferredDate) ?? 0) + 1);
+    const slot = (b.timeSlot || "").slice(0, 2);
+    if (slot) byHour.set(slot, (byHour.get(slot) ?? 0) + 1);
+  }
+  let peakDay: string | null = null;
+  let peakDayCount = -1;
+  for (const [d, c] of byDay.entries()) {
+    if (c > peakDayCount) {
+      peakDayCount = c;
+      peakDay = d;
+    }
+  }
+  let peakHour: string | null = null;
+  let peakHourCount = -1;
+  for (const [h, c] of byHour.entries()) {
+    if (c > peakHourCount) {
+      peakHourCount = c;
+      peakHour = h;
+    }
+  }
+  return { peakDay, peakHour: peakHour ? `${peakHour}:00` : null };
 }
 
