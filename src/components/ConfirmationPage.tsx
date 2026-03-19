@@ -31,7 +31,14 @@ export function ConfirmationPage({
 
   const normalizedStatus: BookingStatus = (() => {
     const v = String(bookingStatus ?? "").toLowerCase().trim();
-    if (v === "pending" || v === "approved" || v === "denied" || v === "confirmed") return v as BookingStatus;
+    if (
+      v === "pending" ||
+      v === "approved" ||
+      v === "denied" ||
+      v === "confirmed" ||
+      v === "changes_requested"
+    )
+      return v as BookingStatus;
     // Fallback for safety if bookingStatus is missing (shouldn't happen in normal flow).
     return approvalRequired ? "pending" : "confirmed";
   })();
@@ -54,6 +61,12 @@ export function ConfirmationPage({
         return {
           title: "Booking Submitted for Approval",
           subtitle: "An admin will review your request.",
+          iconKind: "pending" as const,
+        };
+      case "changes_requested":
+        return {
+          title: "Changes Requested",
+          subtitle: "An admin requested updates before approval. Please resubmit with the requested changes.",
           iconKind: "pending" as const,
         };
       case "denied":

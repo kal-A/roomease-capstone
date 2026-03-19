@@ -17,7 +17,6 @@ import {
 } from "@/types/booking";
 import { furnitureLabelsFromCodes } from "@/lib/furniture";
 import { useBookings, type BookingStatus } from "@/lib/bookingsStore";
-import { getBlockedAsBookings } from "@/lib/blockingStore";
 import Link from "next/link";
 import { ConfirmationPage } from "@/components/ConfirmationPage";
 import { EventForm } from "@/components/EventForm";
@@ -86,6 +85,7 @@ function normalizeBookingStatus(raw: string | null | undefined): BookingStatus |
   if (v === "approved") return "approved";
   if (v === "denied") return "denied";
   if (v === "confirmed") return "confirmed";
+  if (v === "changes_requested") return "changes_requested";
   return null;
 }
 
@@ -124,14 +124,23 @@ function validateRoomForBooking(args: {
   const duration = form.durationMinutes ?? 60;
   if (date && timeSlot) {
     const startM = timeToMinutes(timeSlot);
-    const overlap = existingBookings.some((b) => {
+    const overlaps = existingBookings.filter((b) => {
       if (b.roomId !== String(room.id)) return false;
       if (b.preferredDate !== date) return false;
       const existingStart = timeToMinutes(b.timeSlot);
       const existingDuration = b.durationMinutes ?? 60;
       return timeRangesOverlap(existingStart, existingDuration, startM, duration);
     });
-    if (overlap) errors.push("This room is already booked for that time.");
+    if (overlaps.length > 0) {
+      const maybeFirst = overlaps[0] as any;
+      const organizerName = String(maybeFirst?.organizerName ?? "").toLowerCase();
+      const isBlocked = organizerName.includes("blocked");
+      errors.push(
+        isBlocked
+          ? "This room is unavailable because it is blocked by a closure."
+          : "This room is already booked for that time."
+      );
+    }
   }
 
   return { ok: errors.length === 0, errors };
@@ -216,7 +225,7 @@ function BookPageContent() {
     window.setTimeout(() => {
       const el = ref.current;
       if (!el) return;
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
       (el as HTMLElement).focus?.();
     }, 75);
   };
@@ -255,10 +264,13 @@ function BookPageContent() {
   const totalSteps = lockedRoom ? TOTAL_STEPS_DIRECT : TOTAL_STEPS_FULL;
   const { data: session } = useSession();
   const [liveRoomBookings, setLiveRoomBookings] = useState<TimeBarBooking[]>([]);
+  const [blockedForDate, setBlockedForDate] = useState<
+    { roomId: string; preferredDate: string; timeSlot: string; durationMinutes: number; organizerName?: string; organizerEmail?: string }[]
+  >([]);
   const existingBookings = useMemo(
     () =>
       bookings
-        .filter((b) => b.status === "pending" || b.status === "approved" || b.status === "confirmed")
+        .filter((b) => b.status === "pending" || b.status === "approved" || b.status === "confirmed" || b.status === "changes_requested")
         .map((b) => ({
           roomId: b.roomId,
           preferredDate: b.preferredDate,
@@ -271,15 +283,40 @@ function BookPageContent() {
   );
 
   const existingBookingsWithBlocked = useMemo(() => {
-    if (!lockedRoom || !formData.preferredDate) return existingBookings;
-    const blocked = getBlockedAsBookings(lockedRoom.id, formData.preferredDate, lockedRoom.building);
-    return [...existingBookings, ...blocked];
-  }, [existingBookings, lockedRoom, formData.preferredDate]);
+    if (!formData.preferredDate) return existingBookings;
+    return [...existingBookings, ...blockedForDate];
+  }, [existingBookings, blockedForDate, formData.preferredDate]);
+
+  // Fetch admin-created blockers for the selected local date.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const date = formData.preferredDate;
+      if (!date) {
+        setBlockedForDate([]);
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/blockers/by-date?${new URLSearchParams({ date })}`, { method: "GET" });
+        if (!res.ok) return;
+        const json = (await res.json().catch(() => ({}))) as { blockedBookings?: unknown[] };
+        const list = Array.isArray(json.blockedBookings) ? json.blockedBookings : [];
+        if (!cancelled) setBlockedForDate(list as any);
+      } catch {
+        // Keep booking flow working even if blockers fail to load.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.preferredDate]);
 
   const directConflictContext = useMemo(() => {
     if (!directBookingError || !lockedRoom) return null;
     const msg = directBookingError.toLowerCase();
-    const isTimeConflict = msg.includes("booked") || msg.includes("blocked");
+    const isTimeConflict = msg.includes("booked") || msg.includes("blocked") || msg.includes("blocker");
     if (!isTimeConflict) return null;
     if (!formData.timeSlot) return null;
 
@@ -301,6 +338,7 @@ function BookPageContent() {
     return {
       isMine: Boolean(first.isMine),
       organizerName: first.organizerName ?? "Unknown Organizer",
+      isBlocked: String(first.status ?? "").toLowerCase().trim() === "blocked",
       timeLabel: `${minutesToLabel(startM)}–${minutesToLabel(endM)}`,
     };
   }, [directBookingError, lockedRoom, formData.timeSlot, formData.durationMinutes, liveRoomBookings]);
@@ -400,7 +438,7 @@ function BookPageContent() {
         const msg = validation.errors[0] ?? "This room cannot be booked with the selected constraints.";
         setDoubleBookingError(msg);
 
-        const isTimeConflict = /booked|blocked/i.test(msg);
+        const isTimeConflict = /booked|blocked|blocker/i.test(msg);
         if (isTimeConflict && formData.preferredDate && formData.timeSlot) {
           const startM = timeToMinutes(formData.timeSlot);
           const durationM = formData.durationMinutes ?? 60;
@@ -473,7 +511,7 @@ function BookPageContent() {
           const finalMsg = res.status === 400 ? msg : "Something went wrong creating your booking. Please try again.";
           setDoubleBookingError(finalMsg);
 
-          const isTimeConflict = /booked|blocked/i.test(finalMsg);
+          const isTimeConflict = /booked|blocked|blocker/i.test(finalMsg);
           if (isTimeConflict && pendingBooking.formData.preferredDate && pendingBooking.formData.timeSlot) {
             const startM = timeToMinutes(pendingBooking.formData.timeSlot);
             const durationM = pendingBooking.formData.durationMinutes ?? 60;
@@ -665,6 +703,86 @@ function BookPageContent() {
     setStep(3);
   }, [lockedRoom, formData, existingBookingsWithBlocked, addBooking, session?.user?.email, setBookingStatus]);
 
+  const smartHints = useMemo(() => {
+    const date = formData.preferredDate ?? "";
+    const timeSlot = formData.timeSlot ?? "";
+    const duration = formData.durationMinutes ?? 60;
+    const organizer = String(formData.organizerName ?? "").trim();
+    const hasCoreSelection = Boolean(date && timeSlot);
+    const selectedStart = hasCoreSelection ? timeToMinutes(timeSlot) : 0;
+
+    const isAvailableForRoom = (roomId: string, startM: number): boolean =>
+      !existingBookingsWithBlocked.some((b) => {
+        if (String(b.roomId) !== String(roomId)) return false;
+        if (String(b.preferredDate) !== date) return false;
+        const s = timeToMinutes(String(b.timeSlot));
+        const d = Number(b.durationMinutes ?? 60);
+        return timeRangesOverlap(s, d, startM, duration);
+      });
+
+    const selectedRoomForHints = lockedRoom ?? null;
+    const slotAvailable =
+      selectedRoomForHints && hasCoreSelection
+        ? isAvailableForRoom(String(selectedRoomForHints.id), selectedStart)
+        : null;
+
+    const closestTimes: { start: string; end: string }[] = [];
+    if (selectedRoomForHints && hasCoreSelection && slotAvailable === false) {
+      const ranked = TIME_SLOTS_30MIN.map((s) => s.value)
+        .filter((slot) => {
+          const m = timeToMinutes(slot);
+          return m >= 9 * 60 && m + duration <= 22 * 60;
+        })
+        .filter((slot) => isAvailableForRoom(String(selectedRoomForHints.id), timeToMinutes(slot)))
+        .map((slot) => {
+          const m = timeToMinutes(slot);
+          return { m, distance: Math.abs(m - selectedStart) };
+        })
+        .sort((a, b) => a.distance - b.distance || a.m - b.m)
+        .slice(0, 3);
+
+      for (const x of ranked) {
+        closestTimes.push({ start: minutesToLabel(x.m), end: minutesToLabel(x.m + duration) });
+      }
+    }
+
+    let similarRooms: Room[] = [];
+    if (selectedRoomForHints && hasCoreSelection && slotAvailable === false) {
+      similarRooms = ROOMS
+        .filter((r) => String(r.id) !== String(selectedRoomForHints.id))
+        .filter(
+          (r) => r.building === selectedRoomForHints.building || Math.abs(r.capacity - selectedRoomForHints.capacity) <= 20
+        )
+        .filter((r) => isAvailableForRoom(String(r.id), selectedStart))
+        .sort((a, b) => {
+          const aSameBuilding = a.building === selectedRoomForHints.building ? 0 : 1;
+          const bSameBuilding = b.building === selectedRoomForHints.building ? 0 : 1;
+          if (aSameBuilding !== bSameBuilding) return aSameBuilding - bSameBuilding;
+          return Math.abs(a.capacity - selectedRoomForHints.capacity) - Math.abs(b.capacity - selectedRoomForHints.capacity);
+        })
+        .slice(0, 3);
+    }
+
+    const byOrganizerRoom = new Map<string, number>();
+    if (organizer) {
+      for (const b of bookings) {
+        if (String(b.organizerName ?? "").trim().toLowerCase() !== organizer.toLowerCase()) continue;
+        byOrganizerRoom.set(String(b.roomId), (byOrganizerRoom.get(String(b.roomId)) ?? 0) + 1);
+      }
+    }
+    const clubFrequentRoomId = [...byOrganizerRoom.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+    const hourLoad = new Map<number, number>();
+    for (const b of bookings) {
+      const hour = Number(String(b.timeSlot ?? "00:00").split(":")[0] ?? "0");
+      hourLoad.set(hour, (hourLoad.get(hour) ?? 0) + 1);
+    }
+    const selectedHour = hasCoreSelection ? Math.floor(selectedStart / 60) : -1;
+    const isHighDemand = selectedHour >= 0 && (hourLoad.get(selectedHour) ?? 0) >= 3;
+
+    return { hasCoreSelection, slotAvailable, closestTimes, similarRooms, clubFrequentRoomId, isHighDemand };
+  }, [formData.preferredDate, formData.timeSlot, formData.durationMinutes, formData.organizerName, existingBookingsWithBlocked, lockedRoom, bookings]);
+
   return (
     <div className="mx-auto max-w-[1200px] px-6 py-6 sm:px-8 sm:py-10 lg:px-10">
       <div className="mx-auto max-w-2xl">
@@ -723,20 +841,30 @@ function BookPageContent() {
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-bold text-[var(--text)]">
-                      {directConflictContext ? "Time slot unavailable" : "Booking couldn’t be confirmed"}
+                      {directConflictContext
+                        ? directConflictContext.isBlocked
+                          ? "Room unavailable"
+                          : "Time slot unavailable"
+                        : directBookingError?.includes("not yet configured in the booking system")
+                          ? directBookingError
+                          : "Booking couldn’t be confirmed"}
                     </div>
                     {directConflictContext ? (
                       <>
                         <div className="mt-0.5 text-xs font-medium text-[var(--textSecondary)]">
-                          {directConflictContext.isMine
-                            ? "You already have this room booked for that time."
-                            : "This room is already booked for that time."}
+                          {directConflictContext.isBlocked
+                            ? "This room is unavailable due to a blocker or closure."
+                            : directConflictContext.isMine
+                              ? "You already have this room booked for that time."
+                              : "This room is already booked for that time."}
                         </div>
                         <div className="mt-2 text-xs text-[var(--textSecondary)]">Try a different time or choose one of the options below.</div>
                         <div className="mt-2 text-[10px] font-medium text-[var(--textMuted)]">
-                          {directConflictContext.isMine
-                            ? `Your booking · ${directConflictContext.timeLabel}`
-                            : `Booked by ${directConflictContext.organizerName} · ${directConflictContext.timeLabel}`}
+                          {directConflictContext.isBlocked
+                            ? `${directConflictContext.organizerName} · ${directConflictContext.timeLabel}`
+                            : directConflictContext.isMine
+                              ? `Your booking · ${directConflictContext.timeLabel}`
+                              : `Booked by ${directConflictContext.organizerName} · ${directConflictContext.timeLabel}`}
                         </div>
                       </>
                     ) : (
@@ -762,6 +890,52 @@ function BookPageContent() {
                 viewerEmail={session?.user?.email ?? null}
               />
             </div>
+            {(lockedRoom || (formData.organizerName ?? "").trim()) && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surfaceElevated)] p-4"
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Smart Recommendations</p>
+                <div className="mt-2 space-y-2 text-sm">
+                  {lockedRoom && smartHints.hasCoreSelection && smartHints.slotAvailable === true && (
+                    <p className="text-[var(--success)]">This time slot is available.</p>
+                  )}
+                  {lockedRoom && smartHints.hasCoreSelection && smartHints.slotAvailable === false && (
+                    <>
+                      <p className="text-[var(--danger)]">This time conflicts with an existing booking.</p>
+                      {smartHints.closestTimes.length > 0 && (
+                        <p className="text-[var(--textSecondary)]">
+                          Closest available times:{" "}
+                          <span className="text-[var(--text)]">
+                            {smartHints.closestTimes.map((t) => `${t.start}-${t.end}`).join(" • ")}
+                          </span>
+                        </p>
+                      )}
+                      {smartHints.similarRooms.length > 0 && (
+                        <p className="text-[var(--textSecondary)]">
+                          Similar available rooms:{" "}
+                          <span className="text-[var(--text)]">
+                            {smartHints.similarRooms.map((r) => String(r.id)).join(", ")}
+                          </span>
+                        </p>
+                      )}
+                    </>
+                  )}
+                  {smartHints.clubFrequentRoomId && (
+                    <p className="text-[var(--textSecondary)]">
+                      This club often books: <span className="font-medium text-[var(--text)]">{smartHints.clubFrequentRoomId}</span>
+                    </p>
+                  )}
+                  {smartHints.isHighDemand && (
+                    <p className="text-[var(--primary)]">
+                      This is a high-demand time slot. Consider booking earlier for better availability.
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+            )}
           </motion.div>
         )}
 

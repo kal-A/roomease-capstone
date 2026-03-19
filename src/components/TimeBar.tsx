@@ -88,7 +88,13 @@ export function TimeBar({
       // Denied should not block availability.
       .filter((b) => {
         const s = String(b.status ?? "").toLowerCase();
-        return s === "pending" || s === "approved" || s === "confirmed";
+        return (
+          s === "pending" ||
+          s === "approved" ||
+          s === "confirmed" ||
+          s === "changes_requested" ||
+          s === "blocked"
+        );
       });
 
     const bookedRanges = roomBookings.map((b) => {
@@ -245,6 +251,8 @@ export function TimeBar({
     if (v === "pending") return "Pending Approval";
     if (v === "approved") return "Approved";
     if (v === "confirmed") return "Confirmed";
+    if (v === "changes_requested") return "Changes Requested";
+    if (v === "blocked") return "Unavailable";
     if (v === "denied") return "Denied";
     return "—";
   };

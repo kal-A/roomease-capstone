@@ -109,17 +109,25 @@ export async function POST(req: Request) {
   // Fetch the room from Supabase so we can read room.requires_approval.
   const { data: roomRow, error: roomError } = await sb
     .from("rooms")
-    .select("id, requires_approval")
+    .select("id, requires_approval, building")
     .eq("id", String(roomId))
     .single();
 
   if (roomError) {
+    const isNotFound = roomError.code === "PGRST116" || /no rows/i.test(String(roomError.message ?? ""));
+    if (isNotFound) {
+      return NextResponse.json(
+        { error: "This room is not yet configured in the booking system." },
+        { status: 400 }
+      );
+    }
     console.error("ROOM LOOKUP ERROR", { roomError, roomId: String(roomId), isAdmin });
     return NextResponse.json({ error: "Failed to look up room approval requirements." }, { status: 500 });
   }
 
   const roomRequiresApproval = roomRow?.requires_approval === true;
   const resolvedStatus = roomRequiresApproval ? (isAdmin ? "approved" : "pending") : "confirmed";
+  const roomBuilding = roomRow?.building ? String(roomRow.building) : "";
 
   console.log("BOOKING CREATE DEV", {
     sessionEmail: session.user.email ?? null,
@@ -130,6 +138,49 @@ export async function POST(req: Request) {
   });
 
   payload.status = resolvedStatus;
+
+  // Room blockers / closures must prevent booking regardless of status.
+  const { data: blockerRows, error: blockerErr } = await sb
+    .from("room_blockers")
+    .select("id,room_id,building,reason")
+    .eq("is_active", true)
+    .lt("start_time", String(endTime))
+    .gt("end_time", String(startTime));
+
+  if (blockerErr) {
+    console.error("SUPABASE BLOCKER CHECK ERROR (create)", blockerErr);
+    return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });
+  }
+
+  const hasMatchingBlocker = (blockerRows ?? []).some((br: any) => {
+    const brRoom = br.room_id ? String(br.room_id) : "";
+    const brBuilding = br.building ? String(br.building) : "";
+    return brRoom === String(roomId) || (!!roomBuilding && brBuilding === roomBuilding);
+  });
+
+  if (hasMatchingBlocker) {
+    return NextResponse.json({ error: "This room is unavailable due to a blocker or closure." }, { status: 400 });
+  }
+
+  // Manual overlap check: rely on DB exclusion constraint for most cases,
+  // but also ensure `changes_requested` blocks availability consistently.
+  const BLOCKED_STATUSES = ["pending", "approved", "confirmed", "changes_requested"] as const;
+  const { data: conflictCheck, error: conflictErr } = await sb
+    .from("bookings")
+    .select("id")
+    .eq("room_id", String(roomId))
+    .in("status", [...BLOCKED_STATUSES])
+    .lt("start_time", String(endTime))
+    .gt("end_time", String(startTime));
+
+  if (conflictErr) {
+    console.error("SUPABASE CONFLICT CHECK ERROR (create)", { roomId, conflictErr });
+    return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });
+  }
+
+  if ((conflictCheck ?? []).length > 0) {
+    return NextResponse.json({ error: "This room is already booked for that time." }, { status: 400 });
+  }
 
   const { data, error } = await sb
     .from("bookings")

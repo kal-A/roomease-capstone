@@ -10,7 +10,7 @@ export default async function SupabaseTodosPage() {
   if (error) {
     return (
       <div className="mx-auto max-w-[900px] px-6 py-12 sm:px-8 sm:py-16 lg:px-10">
-        <h1 className="text-2xl font-semibold text-[var(--text)]">Supabase demo</h1>
+        <h1 className="text-2xl font-semibold text-[var(--text)]">Supabase Todos</h1>
         <p className="mt-3 text-sm text-[var(--textSecondary)]">
           Could not load todos from Supabase.
         </p>
@@ -23,7 +23,7 @@ export default async function SupabaseTodosPage() {
 
   return (
     <div className="mx-auto max-w-[900px] px-6 py-12 sm:px-8 sm:py-16 lg:px-10">
-      <h1 className="text-2xl font-semibold text-[var(--text)]">Supabase demo</h1>
+      <h1 className="text-2xl font-semibold text-[var(--text)]">Supabase Todos</h1>
       <p className="mt-2 text-sm text-[var(--textSecondary)]">
         Showing rows from <span className="font-mono">todos</span>.
       </p>

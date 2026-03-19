@@ -41,7 +41,17 @@ export async function POST(req: Request) {
   }
 
   // Demo: keep mutations minimal to avoid schema mismatches.
-  const payload: Record<string, unknown> = { status: "approved" };
+  const nowIso = new Date().toISOString();
+  const payload: Record<string, unknown> = {
+    status: "approved",
+    reviewed_at: nowIso,
+    reviewed_by: email,
+    review_state: null,
+    requested_changes_at: null,
+  };
+  if (body?.adminNote && String(body.adminNote).trim()) {
+    payload.admin_note = String(body.adminNote).trim();
+  }
 
   const { data, error } = await sb
     .from("bookings")

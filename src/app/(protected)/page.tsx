@@ -12,9 +12,11 @@ const NAVBAR_OFFSET = 72; // sticky header height for scroll offset
 function HomePageContent() {
   const pathname = usePathname();
   const hasScrolledRef = useRef(false);
+  const lastScrollYRef = useRef(0);
   const { data: session } = useSession();
   const [activeSection, setActiveSection] = useState<"learn-more" | "why" | "about" | null>(null);
   const [showSectionNav, setShowSectionNav] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
 
   const userFirstName = (() => {
     const fullName = session?.user?.name ?? "";
@@ -90,9 +92,19 @@ function HomePageContent() {
 
     const onScroll = () => {
       const y = window.scrollY || window.pageYOffset;
-      setShowSectionNav(y > 240);
+      const heroEl = document.getElementById("hero");
+      const heroBottom = heroEl ? heroEl.offsetTop + heroEl.offsetHeight : 360;
+      const trigger = Math.max(300, heroBottom - 120);
+      setShowSectionNav(y > trigger);
+
+      const doc = document.documentElement;
+      const max = Math.max(1, doc.scrollHeight - window.innerHeight);
+      setScrollProgress(Math.max(0, Math.min(1, y / max)));
+
+      lastScrollYRef.current = y;
     };
     window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
 
     return () => {
       observer.disconnect();
@@ -110,7 +122,7 @@ function HomePageContent() {
   return (
     <div className="relative">
       {/* Hero */}
-      <section className="mx-auto max-w-[1200px] px-6 pt-24 pb-32 sm:px-8 sm:pt-32 sm:pb-40 lg:px-10">
+      <section id="hero" className="mx-auto max-w-[1200px] px-6 pt-24 pb-32 sm:px-8 sm:pt-32 sm:pb-40 lg:px-10">
         <motion.div
           className="mx-auto max-w-3xl text-center"
           initial={{ opacity: 0, y: 16 }}
@@ -363,32 +375,35 @@ function HomePageContent() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 24 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
-            className="fixed inset-x-0 bottom-6 z-30 flex justify-center px-4 pointer-events-none"
+            transition={{ duration: 0.22, ease: "easeInOut" }}
+            className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 px-4 pointer-events-none"
             aria-label="Homepage section navigation"
           >
-            <div className="pointer-events-auto inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surfaceElevated)]/90 px-2 py-1 shadow-[0_10px_30px_rgba(0,0,0,0.25)] backdrop-blur-xl">
-              {[
-                { id: "learn-more", label: "Learn More" },
-                { id: "why", label: "Why RoomEase" },
-                { id: "about", label: "About Us" },
-              ].map((item) => {
-                const isActive = activeSection === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => handleSectionClick(item.id as "learn-more" | "why" | "about")}
-                    className={`rounded-full px-3.5 py-1.5 text-xs sm:text-[13px] font-medium transition-all duration-200 ${
-                      isActive
-                        ? "bg-[var(--primary)] text-[var(--primaryText)] shadow-sm"
-                        : "text-[var(--textSecondary)] hover:bg-[var(--surface)]"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
+            <div className="pointer-events-auto relative overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surfaceElevated)]/92 px-2 py-1 shadow-[0_10px_30px_rgba(0,0,0,0.25)] backdrop-blur-xl">
+              <div className="inline-flex items-center gap-1">
+                {[
+                  { id: "learn-more", label: "Learn More" },
+                  { id: "why", label: "Why RoomEase" },
+                  { id: "about", label: "About Us" },
+                ].map((item) => {
+                  const isActive = activeSection === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleSectionClick(item.id as "learn-more" | "why" | "about")}
+                      className={`rounded-full px-3.5 py-1.5 text-xs sm:text-[13px] font-medium transition-all duration-200 ${
+                        isActive
+                          ? "bg-[var(--primary)] text-[var(--primaryText)] shadow-sm"
+                          : "text-[var(--textSecondary)] hover:bg-[var(--surface)]"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="absolute bottom-0 left-0 h-[2px] bg-[var(--primary)]/70 transition-[width] duration-150" style={{ width: `${scrollProgress * 100}%` }} />
             </div>
           </motion.nav>
         )}

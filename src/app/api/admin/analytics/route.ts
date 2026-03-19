@@ -7,7 +7,7 @@ import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
 import { DateTime } from "luxon";
 import { buildLocalDayBoundsUtc } from "@/lib/bookingTime";
 
-type ApiBookingStatus = "pending" | "approved" | "denied" | "confirmed";
+type ApiBookingStatus = "pending" | "approved" | "denied" | "confirmed" | "changes_requested";
 
 type TopCountEntry = { key: string; label: string; count: number };
 
@@ -35,7 +35,7 @@ function normalizeOrganizer(raw: string | null | undefined): { key: string; labe
 
 function normalizeStatus(raw: string | null | undefined): ApiBookingStatus | null {
   const v = String(raw ?? "").toLowerCase().trim();
-  if (v === "pending" || v === "approved" || v === "denied" || v === "confirmed") return v;
+  if (v === "pending" || v === "approved" || v === "denied" || v === "confirmed" || v === "changes_requested") return v;
   return null;
 }
 
@@ -91,7 +91,7 @@ export async function GET(req: Request) {
   const totalByRoom = new Map<string, { roomId: string; roomName: string; count: number }>();
   const totalByBuilding = new Map<string, number>();
   const totalByClub = new Map<string, { key: string; label: string; count: number }>();
-  const funnel = { submitted: 0, pending: 0, approved: 0, denied: 0, confirmed: 0 };
+  const funnel = { submitted: 0, pending: 0, approved: 0, denied: 0, confirmed: 0, changesRequested: 0 };
 
   const distinctClubs = new Set<string>();
   const distinctRooms = new Set<string>();
@@ -132,6 +132,7 @@ export async function GET(req: Request) {
     funnel.submitted += 1;
     if (status === "pending") funnel.pending += 1;
     else if (status === "approved") funnel.approved += 1;
+    else if (status === "changes_requested") funnel.changesRequested += 1;
     else if (status === "denied") funnel.denied += 1;
     else if (status === "confirmed") funnel.confirmed += 1;
 
@@ -309,6 +310,7 @@ export async function GET(req: Request) {
       approved: funnel.approved,
       denied: funnel.denied,
       confirmed: funnel.confirmed,
+      changes_requested: funnel.changesRequested,
     },
     defaultClubKey,
     roomsByClub,

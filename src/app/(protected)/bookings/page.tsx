@@ -51,13 +51,19 @@ function statusUi(status: Booking["status"]): { label: string; badgeClass: strin
     case "pending":
       return {
         label: "Pending Approval",
-        subtitle: "Awaiting admin review",
+        subtitle: "Awaiting review",
+        badgeClass: "border-[var(--borderStrong)] bg-[var(--surfaceElevated)] text-[var(--textSecondary)]",
+      };
+    case "changes_requested":
+      return {
+        label: "Changes Requested",
+        subtitle: "Updates requested before approval",
         badgeClass: "border-[var(--borderStrong)] bg-[var(--surfaceElevated)] text-[var(--textSecondary)]",
       };
     case "approved":
       return {
         label: "Approved",
-        subtitle: "Approved by admin",
+        subtitle: "Booking approved",
         badgeClass: "border-[var(--successBorder)] bg-[var(--successBg)] text-[var(--success)]",
       };
     case "denied":
@@ -157,7 +163,7 @@ function DayBookingsModal({
                   >
                     View
                   </button>
-                  {(b.status === "pending" || b.status === "approved" || b.status === "confirmed") && (
+                  {(b.status === "pending" || b.status === "changes_requested" || b.status === "approved" || b.status === "confirmed") && (
                     <button
                       type="button"
                       onClick={() => { onEdit(b); onClose(); }}
@@ -218,9 +224,9 @@ function BookingDetailsModal({
               <p className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium mt-1 ${statusUi(booking.status).badgeClass}`}>
                 {statusUi(booking.status).label}
               </p>
-              {booking.requiresApproval && booking.status === "pending" && (
+              {(booking.requiresApproval && (booking.status === "pending" || booking.status === "changes_requested")) && (
                 <div className="mt-2">
-                  <ApprovalBadge variant="pending" />
+                  <ApprovalBadge variant={booking.status === "changes_requested" ? "changes_requested" : "pending"} />
                 </div>
               )}
             </div>
@@ -245,6 +251,15 @@ function BookingDetailsModal({
               ))}
             </div>
           </div>
+
+          {(booking.adminNote ?? "").trim() !== "" && (booking.status === "denied" || booking.status === "changes_requested") && (
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
+              <p className="text-sm font-semibold text-[var(--text)]">
+                {booking.status === "denied" ? "Reason provided by admin" : "Changes requested by admin"}
+              </p>
+              <p className="mt-2 text-sm text-[var(--textSecondary)] whitespace-pre-wrap">{booking.adminNote}</p>
+            </div>
+          )}
         </div>
         <div className="border-t border-[var(--border)] p-6 flex flex-wrap gap-2 justify-end">
           <button type="button" onClick={onClose} className="rounded-full border border-[var(--border)] bg-transparent px-5 py-2.5 font-medium text-[var(--textSecondary)] hover:bg-[var(--border)]/50 hover:text-[var(--text)]">Close</button>
@@ -310,10 +325,17 @@ export default function MyBookingsPage() {
       const room = roomsById.get(roomId) ?? null;
 
       const statusRaw = String(b.status ?? "").toLowerCase().trim();
+      const reviewStateRaw = String(b.review_state ?? "").toLowerCase().trim();
       const status =
-        statusRaw === "pending" || statusRaw === "approved" || statusRaw === "denied" || statusRaw === "confirmed"
-          ? statusRaw
-          : ("pending" as Booking["status"]);
+        reviewStateRaw === "changes_requested" && statusRaw === "pending"
+          ? ("changes_requested" as Booking["status"])
+          : statusRaw === "pending" ||
+              statusRaw === "approved" ||
+              statusRaw === "denied" ||
+              statusRaw === "confirmed" ||
+              statusRaw === "changes_requested"
+                ? statusRaw
+                : ("pending" as Booking["status"]);
 
       const requiresApproval = status !== "confirmed";
 
@@ -350,6 +372,11 @@ export default function MyBookingsPage() {
         requiresApproval,
         confirmationNumber,
         createdAtIso: b.created_at ?? b.createdAt ? new Date(String(b.created_at ?? b.createdAt)).toISOString() : new Date().toISOString(),
+        adminNote: b.admin_note ?? null,
+        reviewState: b.review_state ?? null,
+        reviewedAtIso: b.reviewed_at ? new Date(String(b.reviewed_at)).toISOString() : null,
+        reviewedBy: b.reviewed_by ?? null,
+        requestedChangesAtIso: b.requested_changes_at ? new Date(String(b.requested_changes_at)).toISOString() : null,
         eventName: String(b.event_name ?? b.eventName ?? ""),
         organizerName: String(b.organizer_name ?? b.organizerName ?? ""),
         organizerEmail: b.booker_email ?? b.bookerEmail ? String(b.booker_email ?? b.bookerEmail) : undefined,
@@ -587,9 +614,9 @@ export default function MyBookingsPage() {
                   <span className="text-[var(--textMuted)]">Room:</span> {b.roomName}
                 </p>
                 <p className="text-[var(--textMuted)] font-mono text-xs">Confirmation #{b.confirmationNumber}</p>
-                {b.requiresApproval && b.status === "pending" && (
+                {b.requiresApproval && (b.status === "pending" || b.status === "changes_requested") && (
                   <div className="pt-1">
-                    <ApprovalBadge variant="pending" />
+                    <ApprovalBadge variant={b.status === "changes_requested" ? "changes_requested" : "pending"} />
                   </div>
                 )}
               </div>
@@ -622,7 +649,7 @@ export default function MyBookingsPage() {
                 >
                   View details
                 </button>
-                {(b.status === "pending" || b.status === "approved" || b.status === "confirmed") && (
+                {(b.status === "pending" || b.status === "changes_requested" || b.status === "approved" || b.status === "confirmed") && (
                   <button
                     type="button"
                     onClick={() => setEditing(b)}

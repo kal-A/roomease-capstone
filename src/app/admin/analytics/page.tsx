@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { DateTime } from "luxon";
 import {
   BarChart,
@@ -53,7 +53,7 @@ export default function AdminAnalyticsPage() {
       topClubs: { key: string; label: string; count: number }[];
     }[];
     topBuildings: { key: string; label: string; count: number }[];
-    approvalFunnel: { submitted: number; pending: number; approved: number; denied: number; confirmed: number };
+    approvalFunnel: { submitted: number; pending: number; approved: number; denied: number; confirmed: number; changes_requested: number };
     defaultClubKey: string;
     roomsByClub: { key: string; label: string; count: number }[];
     clubTrends: { date: string; bookings: number }[];
@@ -64,6 +64,10 @@ export default function AdminAnalyticsPage() {
   const [analytics, setAnalytics] = useState<AdminAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [showFloatingNav, setShowFloatingNav] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [activeSection, setActiveSection] = useState<string>("overview");
+  const lastScrollYRef = useRef(0);
 
   // Redirect non-admins after hooks have been called (keeps hook order stable).
   useEffect(() => {
@@ -126,15 +130,77 @@ export default function AdminAnalyticsPage() {
   const roomsByClub = analytics?.roomsByClub ?? [];
   const clubTrends = analytics?.clubTrends ?? [];
 
-  const funnel = analytics?.approvalFunnel ?? { submitted: 0, pending: 0, approved: 0, denied: 0, confirmed: 0 };
+  const funnel = analytics?.approvalFunnel ?? { submitted: 0, pending: 0, approved: 0, denied: 0, confirmed: 0, changes_requested: 0 };
   const activeClubsCount = analytics?.overview?.activeClubsCount ?? 0;
+  const totalFunnel = Math.max(1, funnel.submitted);
+  const sections = useMemo(
+    () =>
+      [
+        { id: "overview", label: "Overview" },
+        { id: "clubs", label: "Clubs" },
+        { id: "rooms", label: "Rooms" },
+        { id: "buildings", label: "Buildings" },
+        { id: "approval-funnel", label: "Approval Funnel" },
+        { id: "trends", label: "Trends" },
+        { id: "insights", label: "Insights" },
+      ] as const,
+    []
+  );
+
+  const insights = useMemo(() => {
+    const peakHour = analytics?.overview?.peakHour ?? null;
+    const peakDay = analytics?.overview?.peakDay ?? null;
+    const mostRequestedRoom = topRooms[0]?.label ?? null;
+    const underutilizedRoom = topRooms[topRooms.length - 1]?.label ?? null;
+    const highestApprovalRate = topClubs[0]?.label ?? null;
+    const highPendingRoom = perRoomClubs[0]?.roomName ?? null;
+    const buildingHotspot = topBuildings[0]?.label ?? null;
+
+    return { peakHour, peakDay, mostRequestedRoom, underutilizedRoom, highestApprovalRate, highPendingRoom, buildingHotspot };
+  }, [analytics, topRooms, topClubs, perRoomClubs, topBuildings]);
+  const initialLoading = loading && !analytics;
+
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY || window.pageYOffset;
+      const doc = document.documentElement;
+      const max = Math.max(1, doc.scrollHeight - window.innerHeight);
+      setScrollProgress(Math.max(0, Math.min(1, y / max)));
+
+      const trigger = 360;
+      setShowFloatingNav(y > trigger);
+
+      lastScrollYRef.current = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const ids = sections.map((s) => s.id);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible?.target?.id) setActiveSection(visible.target.id);
+      },
+      { threshold: [0.25, 0.45, 0.65] }
+    );
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, [sections]);
   // peak/avg/roomsRequiringApproval are currently used only in the overview cards
   // and may be extended later.
 
   if (session && !isAdmin) return null;
 
   return (
-    <div className="mx-auto max-w-[1200px] px-6 py-12 sm:px-8 sm:py-16 lg:px-10">
+    <div className="mx-auto w-full max-w-[1200px] overflow-x-hidden px-6 py-12 sm:px-8 sm:py-16 lg:px-10">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-4xl font-bold tracking-tight text-[var(--text)] sm:text-5xl" style={{ letterSpacing: "-0.02em" }}>
@@ -160,8 +226,7 @@ export default function AdminAnalyticsPage() {
           </div>
         </div>
       </div>
-
-      {loading ? (
+      {initialLoading ? (
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-10 shadow-lg">
           <p className="text-[var(--textSecondary)]">Loading analytics...</p>
         </div>
@@ -174,28 +239,27 @@ export default function AdminAnalyticsPage() {
           }
           title="No booking data yet"
           description="Once there are bookings in the system, club analytics will appear here."
-          suggestion="Use the demo booking flow to seed data."
+          suggestion="Insights will appear as bookings are created."
         />
       ) : fetchError ? (
         <div className="rounded-2xl border border-[var(--dangerBorder)] bg-[var(--dangerBg)] p-6 shadow-lg">
           <p className="text-sm font-semibold text-[var(--danger)]">{fetchError}</p>
         </div>
       ) : (
-        <div
-          className="grid gap-8 grid-cols-1 md:grid-cols-2 auto-rows-fr"
-          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))" }}
-        >
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {/* Overview summary cards */}
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-6 shadow-lg md:col-span-2"
+            id="overview"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-5 shadow-lg md:col-span-2 xl:col-span-3"
           >
             <div className="flex flex-wrap gap-4">
               {[
                 { label: "Total bookings", value: funnel.submitted },
                 { label: "Pending approvals", value: funnel.pending },
+                { label: "Changes requested", value: funnel.changes_requested },
                 { label: "Approved bookings", value: funnel.approved },
                 { label: "Denied bookings", value: funnel.denied },
                 { label: "Confirmed bookings", value: funnel.confirmed },
@@ -218,7 +282,8 @@ export default function AdminAnalyticsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.05 }}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col"
+            id="clubs"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-5 shadow-lg"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">
               Top Clubs by Bookings
@@ -250,7 +315,8 @@ export default function AdminAnalyticsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col"
+            id="rooms"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-5 shadow-lg"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">
               Most Booked Rooms Overall
@@ -284,7 +350,8 @@ export default function AdminAnalyticsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.12 }}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col"
+            id="buildings"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-5 shadow-lg"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">
               Most Popular Buildings
@@ -320,7 +387,7 @@ export default function AdminAnalyticsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.15 }}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col md:col-span-2"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-5 shadow-lg flex flex-col md:col-span-2 xl:col-span-3"
           >
             <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">
               Top Clubs by Room
@@ -328,7 +395,7 @@ export default function AdminAnalyticsPage() {
             <p className="mb-4 text-sm text-[var(--textSecondary)]">
               For each room, see the clubs that book it most often.
             </p>
-            <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {perRoomClubs.map((entry) => (
                 <div
                   key={entry.roomId}
@@ -369,7 +436,7 @@ export default function AdminAnalyticsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.2 }}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-5 shadow-lg"
           >
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="text-xl font-semibold tracking-tight text-[var(--text)]">
@@ -397,7 +464,7 @@ export default function AdminAnalyticsPage() {
                 No room popularity data for this club yet.
               </p>
             ) : (
-              <div className="min-h-[200px] flex-1 flex items-stretch">
+              <div className="h-[260px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={roomsByClub.map((b) => ({
@@ -445,7 +512,8 @@ export default function AdminAnalyticsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.25 }}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col"
+            id="trends"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-5 shadow-lg"
           >
             <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">
               Club Booking Trends Over Time
@@ -453,7 +521,7 @@ export default function AdminAnalyticsPage() {
             <p className="mb-4 text-sm text-[var(--textSecondary)]">
               Booking counts grouped by date for the selected club.
             </p>
-            <div className="min-h-[200px] flex-1 flex items-stretch">
+            <div className="h-[260px]">
               {clubTrends.length === 0 ? (
                 <p className="flex h-full items-center justify-center text-sm text-[var(--textSecondary)]">
                   No trend data yet for this club.
@@ -502,7 +570,8 @@ export default function AdminAnalyticsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.3 }}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col md:col-span-2"
+            id="approval-funnel"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-5 shadow-lg md:col-span-2 xl:col-span-3"
           >
             <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">Approval Funnel</h2>
             <p className="mb-6 text-sm text-[var(--textSecondary)]">
@@ -512,6 +581,7 @@ export default function AdminAnalyticsPage() {
               {[
                 { label: "Submitted", value: funnel.submitted },
                 { label: "Pending", value: funnel.pending },
+                { label: "Changes requested", value: funnel.changes_requested },
                 { label: "Approved", value: funnel.approved },
                 { label: "Denied", value: funnel.denied },
                 { label: "Confirmed", value: funnel.confirmed },
@@ -522,12 +592,93 @@ export default function AdminAnalyticsPage() {
                 >
                   <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">{s.label}</p>
                   <p className="mt-2 text-2xl font-bold tracking-tight text-[var(--text)]">{s.value}</p>
+                  <p className="mt-1 text-xs text-[var(--textMuted)]">{Math.round((s.value / totalFunnel) * 100)}%</p>
                 </div>
               ))}
             </div>
           </motion.section>
+
+          <motion.section
+            id="insights"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.35 }}
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-5 shadow-lg md:col-span-2 xl:col-span-3"
+          >
+            <h2 className="mb-3 text-xl font-semibold tracking-tight text-[var(--text)]">Insights</h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Peak demand</p>
+                <p className="mt-2 text-sm text-[var(--text)]">
+                  {insights.peakHour && insights.peakDay
+                    ? `Peak usage: ${insights.peakHour} on ${insights.peakDay}.`
+                    : "Insights will appear as bookings are created."}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Demand forecast</p>
+                <p className="mt-2 text-sm text-[var(--text)]">
+                  {insights.buildingHotspot
+                    ? `High demand expected for ${getBuildingTicketLabel(insights.buildingHotspot)} rooms this week.`
+                    : "No building demand signal yet."}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Underutilized rooms</p>
+                <p className="mt-2 text-sm text-[var(--text)]">
+                  {insights.underutilizedRoom ? `${insights.underutilizedRoom} is underutilized.` : "No underutilization signal yet."}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Most requested room</p>
+                <p className="mt-2 text-sm text-[var(--text)]">{insights.mostRequestedRoom ?? "No room data yet."}</p>
+              </div>
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Highest approval club</p>
+                <p className="mt-2 text-sm text-[var(--text)]">{insights.highestApprovalRate ?? "No club signal yet."}</p>
+              </div>
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Pending concentration</p>
+                <p className="mt-2 text-sm text-[var(--text)]">
+                  {insights.highPendingRoom ? `${insights.highPendingRoom} has the highest pending demand.` : "No pending concentration signal yet."}
+                </p>
+              </div>
+            </div>
+          </motion.section>
         </div>
       )}
+      <AnimatePresence>
+        {showFloatingNav && (
+          <motion.nav
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={{ duration: 0.22, ease: "easeInOut" }}
+            className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 px-4 pointer-events-none"
+            aria-label="Admin analytics section navigation"
+          >
+            <div className="pointer-events-auto relative overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surfaceElevated)]/92 px-2 py-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.25)] backdrop-blur-xl">
+              <div className="flex flex-wrap items-center justify-center gap-1">
+                {sections.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                    className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
+                      activeSection === s.id
+                        ? "bg-[var(--primary)] text-[var(--primaryText)]"
+                        : "text-[var(--textSecondary)] hover:bg-[var(--surface)]"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              <div className="absolute bottom-0 left-0 h-[2px] bg-[var(--primary)]/70 transition-[width] duration-150" style={{ width: `${scrollProgress * 100}%` }} />
+            </div>
+          </motion.nav>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

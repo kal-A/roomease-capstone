@@ -6,14 +6,17 @@ import { ROOMS } from "@/data/rooms";
 import { getBuildingDisplayName } from "@/lib/buildings";
 import { DateTime } from "luxon";
 
-type ApiStatus = "pending" | "approved" | "denied" | "confirmed";
+type ApiStatus = "pending" | "approved" | "denied" | "confirmed" | "changes_requested";
 
-function normalizeApiStatus(raw: string): "Pending" | "Approved" | "Denied" | "Confirmed" {
+function normalizeApiStatus(
+  raw: string
+): "Pending" | "Approved" | "Denied" | "Confirmed" | "Changes Requested" {
   const v = String(raw ?? "").toLowerCase().trim();
   if (v === "pending") return "Pending";
   if (v === "approved") return "Approved";
   if (v === "denied") return "Denied";
   if (v === "confirmed") return "Confirmed";
+  if (v === "changes_requested") return "Changes Requested";
   return "Pending";
 }
 
@@ -46,7 +49,7 @@ export async function GET() {
   const { data, error } = await sb
     .from("bookings")
     .select(
-      "id,room_id,start_time,end_time,booker_name,booker_email,event_name,organizer_name,group_size,status,created_at"
+      "id,room_id,start_time,end_time,booker_name,booker_email,event_name,organizer_name,group_size,status,created_at,admin_note,review_state,reviewed_at,reviewed_by,requested_changes_at"
     )
     .order("start_time", { ascending: false })
     .limit(200);
@@ -68,9 +71,31 @@ export async function GET() {
     group_size?: number | null;
     status?: string | null;
     created_at?: string | null;
+    admin_note?: string | null;
+    review_state?: string | null;
+    reviewed_at?: string | null;
+    reviewed_by?: string | null;
+    requested_changes_at?: string | null;
   };
 
-  const bookings = (data ?? []).map((b: BookingRow) => {
+  const bookingRows = (data ?? []) as BookingRow[];
+  const BLOCKED_STATUSES = new Set(["pending", "approved", "confirmed", "changes_requested"]);
+
+  const precomputed = bookingRows.map((r) => {
+    const roomIdKey = String(r.room_id ?? "");
+    const startMs = r.start_time ? DateTime.fromISO(String(r.start_time)).toMillis() : NaN;
+    const endMs = r.end_time ? DateTime.fromISO(String(r.end_time)).toMillis() : NaN;
+    const statusLower = String(r.status ?? "").toLowerCase().trim();
+    return {
+      id: String(r.id ?? ""),
+      roomIdKey,
+      startMs,
+      endMs,
+      statusLower,
+    };
+  });
+
+  const bookings = bookingRows.map((b: BookingRow) => {
     const roomIdKey = String(b.room_id);
     const room = roomsById.get(roomIdKey);
 
@@ -82,8 +107,26 @@ export async function GET() {
     const endTime = end.isValid ? end.toFormat("HH:mm") : "";
     const duration = start.isValid && end.isValid ? formatDurationLabel(start, end) : "—";
 
-    const status = normalizeApiStatus(String(b.status ?? "") as ApiStatus);
+    const statusLower = String(b.status ?? "").toLowerCase().trim();
+    const reviewStateLower = String(b.review_state ?? "").toLowerCase().trim();
+    const statusForUi =
+      reviewStateLower === "changes_requested" && statusLower === "pending" ? "changes_requested" : statusLower;
+    const status = normalizeApiStatus(statusForUi as ApiStatus);
     const submittedAtIso = b.created_at ? String(b.created_at) : new Date().toISOString();
+
+    // Compute a real conflict summary from the returned dataset.
+    // (Denied bookings should not be considered blocking.)
+    const bId = String(b.id ?? "");
+    const bStartMs = b.start_time ? DateTime.fromISO(String(b.start_time)).toMillis() : NaN;
+    const bEndMs = b.end_time ? DateTime.fromISO(String(b.end_time)).toMillis() : NaN;
+    const conflictCount = precomputed.filter((o) => {
+      if (!o.id || o.id === bId) return false;
+      if (o.roomIdKey !== roomIdKey) return false;
+      if (!BLOCKED_STATUSES.has(o.statusLower)) return false;
+      if (!Number.isFinite(bStartMs) || !Number.isFinite(bEndMs)) return false;
+      // overlap: start < otherEnd && end > otherStart
+      return o.startMs < bEndMs && o.endMs > bStartMs;
+    }).length;
 
     return {
       id: String(b.id ?? `${b.event_name}-${roomIdKey}-${submittedAtIso}`),
@@ -102,8 +145,8 @@ export async function GET() {
       furnitureNeeds: "—",
       avNeeds: "—",
       submittedAt: submittedAtIso,
-      notes: "",
-      conflictSummary: "",
+      notes: String(b.admin_note ?? ""),
+      conflictSummary: conflictCount > 0 ? `Conflicts with ${conflictCount} booking(s).` : "No conflicts detected.",
     };
   });
 

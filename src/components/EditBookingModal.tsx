@@ -53,7 +53,7 @@ export function EditBookingModal({ booking, isOpen, onClose, onSaveSuccess, onDe
       (async () => {
         setIsSaving(true);
         try {
-          const blockedStatuses = ["pending", "approved", "confirmed"];
+          const blockedStatuses = ["pending", "approved", "confirmed", "changes_requested"];
           const others = bookings.filter((b) => b.id !== booking.id && blockedStatuses.includes(b.status));
 
           const startM = timeToMinutes(timeSlot);
@@ -113,7 +113,7 @@ export function EditBookingModal({ booking, isOpen, onClose, onSaveSuccess, onDe
           });
 
           const updatedStatusRaw = String(json?.booking?.status ?? booking.status).toLowerCase().trim();
-          const allowed: BookingStatus[] = ["pending", "approved", "denied", "confirmed"];
+          const allowed: BookingStatus[] = ["pending", "approved", "denied", "confirmed", "changes_requested"];
           const updatedStatus: BookingStatus = allowed.includes(updatedStatusRaw as BookingStatus)
             ? (updatedStatusRaw as BookingStatus)
             : booking.status;

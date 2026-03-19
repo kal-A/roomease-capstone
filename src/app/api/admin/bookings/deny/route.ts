@@ -40,8 +40,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
   }
 
-  // Demo: keep mutations minimal to avoid schema mismatches.
-  const payload: Record<string, unknown> = { status: "denied" };
+  const nowIso = new Date().toISOString();
+  const payload: Record<string, unknown> = {
+    status: "denied",
+    reviewed_at: nowIso,
+    reviewed_by: email,
+    review_state: null,
+    requested_changes_at: null,
+  };
+  if (body?.adminNote && String(body.adminNote).trim()) {
+    payload.admin_note = String(body.adminNote).trim();
+  }
 
   const { data, error } = await sb
     .from("bookings")

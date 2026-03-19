@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { EmptyState } from "@/components/EmptyState";
 import {
   BarChart,
@@ -86,9 +86,58 @@ export default function AnalyticsPage() {
   const trendsData = useMemo(() => getTrendsByClub(scopedBookings), [scopedBookings]);
 
   const hasData = scopedBookings.length > 0;
+  const sections = useMemo(
+    () =>
+      [
+        { id: "overview", label: "Overview" },
+        { id: "clubs", label: "Clubs" },
+        { id: "rooms", label: "Rooms" },
+        { id: "buildings", label: "Buildings" },
+        { id: "approval-funnel", label: "Approval Funnel" },
+        { id: "trends", label: "Trends" },
+        { id: "insights", label: "Insights" },
+      ] as const,
+    []
+  );
+  const [showFloatingNav, setShowFloatingNav] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [activeSection, setActiveSection] = useState<string>("overview");
+  const lastScrollYRef = useRef(0);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY || window.pageYOffset;
+      const doc = document.documentElement;
+      const max = Math.max(1, doc.scrollHeight - window.innerHeight);
+      setScrollProgress(Math.max(0, Math.min(1, y / max)));
+      const trigger = 320;
+      setShowFloatingNav(y > trigger);
+      lastScrollYRef.current = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible?.target?.id) setActiveSection(visible.target.id);
+      },
+      { threshold: [0.25, 0.45, 0.65] }
+    );
+    sections.forEach((s) => {
+      const el = document.getElementById(s.id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, [sections]);
 
   return (
-    <div className="mx-auto max-w-[1200px] px-6 py-12 sm:px-8 sm:py-16 lg:px-10">
+    <div className="mx-auto w-full max-w-[1200px] overflow-x-hidden px-6 py-12 sm:px-8 sm:py-16 lg:px-10">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-4xl font-bold tracking-tight text-[var(--text)] sm:text-5xl" style={{ letterSpacing: "-0.02em" }}>
@@ -99,7 +148,6 @@ export default function AnalyticsPage() {
           </p>
         </div>
       </div>
-
       {!hasData ? (
         <EmptyState
           icon={
@@ -124,15 +172,16 @@ export default function AnalyticsPage() {
         />
       ) : (
         <div
-          className="grid gap-8 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 auto-rows-fr"
-          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))" }}
+          id="overview"
+          className="grid grid-cols-1 gap-4 md:grid-cols-2 auto-rows-auto"
         >
           {/* Section 1 — Most Booked Buildings (bar chart) */}
           <motion.section
+            id="buildings"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-5 shadow-lg"
           >
             <div className="mb-6 flex items-center gap-2">
               <h2 className="text-xl font-semibold tracking-tight text-[var(--text)]">
@@ -144,7 +193,7 @@ export default function AnalyticsPage() {
                 </span>
               )}
             </div>
-            <div className="min-h-[200px] flex-1 flex items-stretch">
+            <div className="h-[260px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={byBuildingList}
@@ -185,10 +234,11 @@ export default function AnalyticsPage() {
 
           {/* Section 2 — Most Booked Rooms (ranked list) */}
           <motion.section
+            id="rooms"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-5 shadow-lg"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">
               My Most Booked Rooms
@@ -225,13 +275,14 @@ export default function AnalyticsPage() {
 
           {/* Section 3 — Capacity Distribution */}
           <motion.section
+            id="approval-funnel"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.2 }}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-5 shadow-lg"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">Capacity Distribution</h2>
-            <div className="min-h-[200px] flex-1 flex items-stretch">
+            <div className="h-[260px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={capacityData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
@@ -264,15 +315,16 @@ export default function AnalyticsPage() {
 
           {/* Section 4 — Peak booking hours */}
           <motion.section
+            id="trends"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.25 }}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-5 shadow-lg"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">
               My Most Common Time Slots
             </h2>
-            <div className="min-h-[200px] flex-1 flex items-stretch">
+            <div className="h-[260px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={peakHoursData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
@@ -304,10 +356,11 @@ export default function AnalyticsPage() {
 
           {/* Section 5 — Top organizers / clubs (user-focused) */}
           <motion.section
+            id="clubs"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.3 }}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-5 shadow-lg"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">
               My Most Used Organizer Names
@@ -338,15 +391,16 @@ export default function AnalyticsPage() {
 
           {/* Section 6 — Booking trends (user/global) */}
           <motion.section
+            id="trends"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.35 }}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg flex flex-col min-h-0 md:col-span-2"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-5 shadow-lg md:col-span-2"
           >
             <h2 className="mb-6 text-xl font-semibold tracking-tight text-[var(--text)]">
               My Booking Activity Over Time
             </h2>
-            <div className="min-h-[200px] flex-1 flex items-stretch">
+            <div className="h-[260px]">
               {trendsData.length === 0 ? (
                 <p className="flex h-full items-center justify-center text-sm text-[var(--textSecondary)]">
                   No date data yet.
@@ -389,8 +443,72 @@ export default function AnalyticsPage() {
               )}
             </div>
           </motion.section>
+
+          <motion.section
+            id="insights"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.4 }}
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-5 shadow-lg md:col-span-2"
+          >
+            <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">Insights</h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Peak demand</p>
+                <p className="mt-2 text-sm text-[var(--text)]">
+                  {topSlots[0]?.label ? `Peak usage: ${topSlots[0].label}.` : "Insights will appear as bookings are created."}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Best rooms for you</p>
+                <p className="mt-2 text-sm text-[var(--text)]">
+                  {myTopRooms[0]?.label ? `${myTopRooms[0].label} is your strongest match.` : "No room usage signal yet."}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">Demand forecast</p>
+                <p className="mt-2 text-sm text-[var(--text)]">
+                  {myTopBuildings[0]?.label
+                    ? `High demand expected in ${getBuildingTicketLabel(myTopBuildings[0].label)} this week.`
+                    : "No forecast signal yet."}
+                </p>
+              </div>
+            </div>
+          </motion.section>
         </div>
       )}
+      <AnimatePresence>
+        {showFloatingNav && (
+          <motion.nav
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={{ duration: 0.22, ease: "easeInOut" }}
+            className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 px-4 pointer-events-none"
+            aria-label="Analytics section navigation"
+          >
+            <div className="pointer-events-auto relative overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surfaceElevated)]/92 px-2 py-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.25)] backdrop-blur-xl">
+              <div className="flex flex-wrap items-center justify-center gap-1">
+                {sections.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                    className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
+                      activeSection === s.id
+                        ? "bg-[var(--primary)] text-[var(--primaryText)]"
+                        : "text-[var(--textSecondary)] hover:bg-[var(--surface)]"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              <div className="absolute bottom-0 left-0 h-[2px] bg-[var(--primary)]/70 transition-[width] duration-150" style={{ width: `${scrollProgress * 100}%` }} />
+            </div>
+          </motion.nav>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

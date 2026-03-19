@@ -5,14 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { EmptyState } from "@/components/EmptyState";
 import { ApprovalBadge } from "@/components/ApprovalBadge";
 import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
-import {
-  getBlockedSlots,
-  closeBuilding,
-  blockRoom,
-  removeBlock,
-} from "@/lib/blockingStore";
 
-type AdminStatus = "Pending" | "Approved" | "Denied" | "Confirmed";
+type AdminStatus = "Pending" | "Approved" | "Denied" | "Confirmed" | "Changes Requested";
 
 interface AdminBooking {
   id: string;
@@ -240,7 +234,7 @@ const MOCK_BOOKINGS: AdminBooking[] = [];
 ];
 */
 
-type StatusFilter = "all" | "pending" | "approved" | "denied";
+type StatusFilter = "all" | "pending" | "approved" | "denied" | "changes_requested";
 type SortOption = "newest" | "oldest";
 
 interface ToastState {
@@ -315,6 +309,11 @@ function statusStyles(status: AdminStatus): { badge: string } {
         badge:
           "inline-flex items-center gap-1 rounded-full border border-[var(--dangerBorder)] bg-[var(--dangerBg)] px-2.5 py-1 text-xs font-medium text-[var(--danger)]",
       };
+    case "Changes Requested":
+      return {
+        badge:
+          "inline-flex items-center gap-1 rounded-full border border-[var(--primaryBorder)] bg-[var(--primarySubtle)] px-2.5 py-1 text-xs font-medium text-[var(--primary)]",
+      };
     case "Confirmed":
       return {
         badge:
@@ -336,6 +335,8 @@ function statusLabel(status: AdminStatus): string {
       return "Approved";
     case "Denied":
       return "Denied";
+    case "Changes Requested":
+      return "Changes Requested";
     case "Confirmed":
       return "Confirmed";
     default:
@@ -350,14 +351,68 @@ export default function AdminApprovalsPage() {
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
-  const [actionLoading, setActionLoading] = useState<{ id: string; type: "approve" | "deny" } | null>(null);
+  const [actionLoading, setActionLoading] = useState<
+    { id: string; type: "approve" | "deny" | "undo" | "request_changes" } | null
+  >(null);
   const [blockVersion, setBlockVersion] = useState(0);
   const [facilityOpen, setFacilityOpen] = useState(false);
   const [closeBuildingCode, setCloseBuildingCode] = useState("");
   const [closeBuildingDate, setCloseBuildingDate] = useState("");
   const [blockRoomId, setBlockRoomId] = useState("");
   const [blockRoomDate, setBlockRoomDate] = useState("");
-  const blocks = useMemo(() => getBlockedSlots(), [blockVersion]);
+
+  type AdminBlocker = {
+    id: string;
+    roomId: string | null;
+    building: string | null;
+    date: string; // yyyy-mm-dd
+    startTime?: string;
+    endTime?: string;
+    reason: string | null;
+  };
+
+  const [blocks, setBlocks] = useState<AdminBlocker[]>([]);
+
+  const refetchBlocks = useCallback(async () => {
+    const res = await fetch("/api/admin/blockers", { method: "GET" });
+    if (!res.ok) {
+      // Silent failure: admin blockers are optional, but availability should still work.
+      return;
+    }
+    const json = (await res.json().catch(() => ({}))) as { blockers?: unknown };
+    const list = Array.isArray(json.blockers) ? (json.blockers as AdminBlocker[]) : [];
+    setBlocks(list);
+  }, []);
+
+  useEffect(() => {
+    refetchBlocks();
+  }, [refetchBlocks, blockVersion]);
+
+  type AdminNoteMode = "deny" | "request_changes";
+  const [adminNoteModal, setAdminNoteModal] = useState<{ id: string; mode: AdminNoteMode } | null>(null);
+  const [adminNoteText, setAdminNoteText] = useState("");
+
+  const openAdminNoteModal = (id: string, mode: AdminNoteMode) => {
+    setAdminNoteText("");
+    setAdminNoteModal({ id, mode });
+  };
+
+  const closeAdminNoteModal = () => {
+    setAdminNoteModal(null);
+    setAdminNoteText("");
+  };
+
+  const confirmAdminNote = async () => {
+    if (!adminNoteModal) return;
+    const { id, mode } = adminNoteModal;
+    const note = adminNoteText;
+    closeAdminNoteModal();
+    if (mode === "deny") {
+      await handleDeny(id, note);
+    } else {
+      await handleRequestChanges(id, note);
+    }
+  };
 
   const refetchBookings = useCallback(async () => {
     const res = await fetch("/api/admin/bookings", { method: "GET" });
@@ -393,7 +448,13 @@ export default function AdminApprovalsPage() {
 
     if (statusFilter !== "all") {
       const target: AdminStatus =
-        statusFilter === "pending" ? "Pending" : statusFilter === "approved" ? "Approved" : "Denied";
+        statusFilter === "pending"
+          ? "Pending"
+          : statusFilter === "approved"
+            ? "Approved"
+            : statusFilter === "changes_requested"
+              ? "Changes Requested"
+              : "Denied";
       list = list.filter((b) => b.status === target);
     }
 
@@ -481,14 +542,14 @@ export default function AdminApprovalsPage() {
     }
   };
 
-  const handleDeny = async (id: string) => {
+  const handleDeny = async (id: string, adminNote?: string) => {
     if (actionLoading?.id === id && actionLoading?.type === "deny") return;
     setActionLoading({ id, type: "deny" });
     try {
       const res = await fetch("/api/admin/bookings/deny", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bookingId: id }),
+        body: JSON.stringify({ bookingId: id, adminNote: adminNote?.trim() ? adminNote.trim() : undefined }),
       });
       if (!res.ok) {
         const json = (await res.json().catch(() => ({}))) as { error?: unknown };
@@ -505,38 +566,122 @@ export default function AdminApprovalsPage() {
     }
   };
 
-  const handleUndo = (_id: string) => {
-    // Undo is not wired to the backend in this task.
-    showToast("Undo not supported.", "info");
+  const handleUndo = async (id: string) => {
+    if (actionLoading?.id === id && actionLoading?.type === "undo") return;
+    setActionLoading({ id, type: "undo" });
+    try {
+      const res = await fetch("/api/admin/bookings/undo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: id }),
+      });
+      if (!res.ok) {
+        const json = (await res.json().catch(() => ({}))) as { error?: unknown };
+        const msg = typeof json.error === "string" ? json.error : "Could not undo booking decision.";
+        throw new Error(msg);
+      }
+      showToast("Decision undone", "success");
+      await refetchBookings();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not undo booking decision.";
+      showToast(msg, "danger");
+    } finally {
+      setActionLoading(null);
+    }
   };
 
-  const handleRequestChanges = (_id: string) => {
-    // Keep as a UI affordance; not part of the approve/deny backend integration.
-    showToast("Request changes is not wired yet.", "info");
+  const handleRequestChanges = async (id: string, adminNote?: string) => {
+    if (actionLoading?.id === id && actionLoading?.type === "request_changes") return;
+    setActionLoading({ id, type: "request_changes" });
+    try {
+      const res = await fetch("/api/admin/bookings/request-changes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: id, adminNote: adminNote?.trim() ? adminNote.trim() : undefined }),
+      });
+      if (!res.ok) {
+        const json = (await res.json().catch(() => ({}))) as { error?: unknown };
+        const msg = typeof json.error === "string" ? json.error : "Could not request changes.";
+        throw new Error(msg);
+      }
+      showToast("Changes requested", "success");
+      await refetchBookings();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not request changes.";
+      showToast(msg, "danger");
+    } finally {
+      setActionLoading(null);
+    }
   };
 
-  const handleCloseBuilding = () => {
-    if (!closeBuildingCode.trim() || !closeBuildingDate.trim()) return;
-    closeBuilding(closeBuildingCode.trim(), closeBuildingDate.trim());
-    setBlockVersion((v) => v + 1);
-    setCloseBuildingCode("");
-    setCloseBuildingDate("");
-    showToast(`Building ${closeBuildingCode} closed for ${closeBuildingDate}`, "success");
+  const handleCloseBuilding = async () => {
+    const building = closeBuildingCode.trim();
+    const date = closeBuildingDate.trim();
+    if (!building || !date) return;
+    try {
+      const res = await fetch("/api/admin/blockers/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          building,
+          date,
+          startTime: "09:00",
+          endTime: "22:00",
+          reason: "Building closed for maintenance",
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Could not create blocker");
+      showToast(`Building ${building} closed for ${date}`, "success");
+      setBlockVersion((v) => v + 1);
+      setCloseBuildingCode("");
+      setCloseBuildingDate("");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not create blocker.";
+      showToast(msg, "danger");
+    }
   };
 
-  const handleBlockRoom = () => {
-    if (!blockRoomId.trim() || !blockRoomDate.trim()) return;
-    blockRoom(blockRoomId.trim(), blockRoomDate.trim());
-    setBlockVersion((v) => v + 1);
-    setBlockRoomId("");
-    setBlockRoomDate("");
-    showToast(`Room ${blockRoomId} blocked for ${blockRoomDate}`, "success");
+  const handleBlockRoom = async () => {
+    const roomId = blockRoomId.trim();
+    const date = blockRoomDate.trim();
+    if (!roomId || !date) return;
+    try {
+      const res = await fetch("/api/admin/blockers/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomId,
+          date,
+          startTime: "09:00",
+          endTime: "22:00",
+          reason: "Room blocked",
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Could not create blocker");
+      showToast(`Room ${roomId} blocked for ${date}`, "success");
+      setBlockVersion((v) => v + 1);
+      setBlockRoomId("");
+      setBlockRoomDate("");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not create blocker.";
+      showToast(msg, "danger");
+    }
   };
 
-  const handleRemoveBlock = (id: string) => {
-    removeBlock(id);
-    setBlockVersion((v) => v + 1);
-    showToast("Block removed", "success");
+  const handleRemoveBlock = async (id: string) => {
+    try {
+      const res = await fetch("/api/admin/blockers/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blockerId: id }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Could not remove blocker");
+      showToast("Block removed", "success");
+      setBlockVersion((v) => v + 1);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not remove blocker.";
+      showToast(msg, "danger");
+    }
   };
 
   const hasResults = filtered.length > 0;
@@ -616,6 +761,7 @@ export default function AdminApprovalsPage() {
             {[
               { key: "pending" as StatusFilter, label: "Pending Approval" },
               { key: "approved" as StatusFilter, label: "Approved" },
+              { key: "changes_requested" as StatusFilter, label: "Changes Requested" },
               { key: "denied" as StatusFilter, label: "Denied" },
             ].map((opt) => (
               <button
@@ -750,7 +896,7 @@ export default function AdminApprovalsPage() {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleDeny(b.id)}
+                                onClick={() => openAdminNoteModal(b.id, "deny")}
                                 disabled={actionLoading?.id === b.id && actionLoading?.type === "deny"}
                                 className="rounded-full border border-[var(--danger)] bg-transparent px-4 py-2 text-xs font-semibold text-[var(--danger)] transition-all duration-200 hover:bg-[var(--danger)]/10 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[var(--danger)]/60 disabled:opacity-70 disabled:cursor-not-allowed"
                               >
@@ -758,19 +904,23 @@ export default function AdminApprovalsPage() {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleRequestChanges(b.id)}
+                                onClick={() => openAdminNoteModal(b.id, "request_changes")}
+                                disabled={actionLoading?.id === b.id && actionLoading?.type === "request_changes"}
                                 className="rounded-full border border-[var(--border)] bg-transparent px-4 py-2 text-xs font-medium text-[var(--textSecondary)] transition-all duration-200 hover:text-[var(--text)] hover:border-[var(--primary)]/50 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
                               >
-                                Request changes
+                                {actionLoading?.id === b.id && actionLoading?.type === "request_changes"
+                                  ? "Requesting..."
+                                  : "Request changes"}
                               </button>
                             </>
-                          ) : b.status === "Approved" || b.status === "Denied" ? (
+                          ) : b.status === "Approved" || b.status === "Denied" || b.status === "Changes Requested" ? (
                             <button
                               type="button"
                               onClick={() => handleUndo(b.id)}
+                            disabled={actionLoading?.id === b.id && actionLoading?.type === "undo"}
                               className="rounded-full border border-[var(--border)] bg-transparent px-4 py-2 text-xs font-medium text-[var(--textSecondary)] transition-all duration-200 hover:text-[var(--text)] hover:border-[var(--borderStrong)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
                             >
-                              Undo
+                            {actionLoading?.id === b.id && actionLoading?.type === "undo" ? "Undoing..." : "Undo"}
                             </button>
                           ) : (
                             <span className="inline-flex h-10" />
@@ -853,10 +1003,6 @@ export default function AdminApprovalsPage() {
                                 Conflict check
                               </p>
                               <p className="mt-0.5 text-xs text-[var(--textSecondary)]">{b.conflictSummary}</p>
-                            </div>
-                            <div className="flex items-center gap-1 text-xs text-[var(--textSecondary)]">
-                              <span className="h-2 w-2 rounded-full bg-[var(--success)]" />
-                              <span>Demo-only</span>
                             </div>
                           </div>
                         </motion.div>
@@ -967,6 +1113,76 @@ export default function AdminApprovalsPage() {
           </motion.div>
         )}
       </div>
+
+      {adminNoteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeAdminNoteModal} aria-hidden="true" />
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.98 }}
+            className="relative z-10 w-full max-w-lg rounded-2xl border border-[var(--border)] bg-[var(--surfaceElevated)] p-6"
+            style={{ borderWidth: "1px" }}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h3 className="text-lg font-semibold text-[var(--text)]">
+                  {adminNoteModal.mode === "deny" ? "Deny booking" : "Request changes"}
+                </h3>
+                <p className="mt-1 text-sm text-[var(--textSecondary)]">
+                  Optional: add a note for the user.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeAdminNoteModal}
+                className="rounded-full p-2 text-[var(--textSecondary)] hover:bg-[var(--border)]/50 hover:text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
+                aria-label="Close"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <label className="mb-2 block text-xs font-medium text-[var(--textSecondary)]">
+                Note
+              </label>
+              <textarea
+                value={adminNoteText}
+                onChange={(e) => setAdminNoteText(e.target.value)}
+                placeholder={adminNoteModal.mode === "deny" ? "Optional reason for denial" : "Optional request for changes"}
+                className="w-full min-h-[120px] rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-[var(--text)] placeholder-[var(--textMuted)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] resize-none"
+              />
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeAdminNoteModal}
+                className="rounded-full border border-[var(--border)] bg-transparent px-5 py-2.5 text-sm font-medium text-[var(--textSecondary)] hover:bg-[var(--border)]/50 hover:text-[var(--text)]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmAdminNote}
+                disabled={actionLoading?.id === adminNoteModal.id}
+                className="rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primaryText)] shadow-[0_2px_8px_var(--primaryGlow)] transition-all duration-200 hover:bg-[var(--primaryHover)] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {actionLoading?.id === adminNoteModal.id
+                  ? adminNoteModal.mode === "deny"
+                    ? "Denying..."
+                    : "Requesting..."
+                  : adminNoteModal.mode === "deny"
+                    ? "Deny"
+                    : "Request changes"}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       <AnimatePresence>
         {toast && (

@@ -12,7 +12,7 @@ type PatchBookingBody = {
   endTime: string; // ISO
 };
 
-const BLOCKED_STATUSES = ["pending", "approved", "confirmed"] as const;
+const BLOCKED_STATUSES = ["pending", "approved", "confirmed", "changes_requested"] as const;
 
 export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -124,7 +124,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   // Fetch room to decide status based on requires_approval.
   const { data: roomRow, error: roomError } = await sb
     .from("rooms")
-    .select("id, requires_approval")
+    .select("id, requires_approval, building")
     .eq("id", String(roomId))
     .single();
 
@@ -135,6 +135,30 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
   const roomRequiresApproval = roomRow?.requires_approval === true;
   const resolvedStatus = roomRequiresApproval ? (isAdmin ? "approved" : "pending") : "confirmed";
+  const roomBuilding = roomRow?.building ? String(roomRow.building) : "";
+
+  // Blockers / closures must prevent edits as well.
+  const { data: blockerRows, error: blockerErr } = await sb
+    .from("room_blockers")
+    .select("id,room_id,building,reason")
+    .eq("is_active", true)
+    .lt("start_time", endTime)
+    .gt("end_time", startTime);
+
+  if (blockerErr) {
+    console.error("SUPABASE BLOCKER CHECK ERROR (patch)", { bookingId, blockerErr });
+    return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });
+  }
+
+  const hasMatchingBlocker = (blockerRows ?? []).some((br: any) => {
+    const brRoom = br.room_id ? String(br.room_id) : "";
+    const brBuilding = br.building ? String(br.building) : "";
+    return brRoom === String(roomId) || (!!roomBuilding && brBuilding === roomBuilding);
+  });
+
+  if (hasMatchingBlocker) {
+    return NextResponse.json({ error: "This room is unavailable due to a blocker or closure." }, { status: 400 });
+  }
 
   const conflictCheck = await sb
     .from("bookings")
@@ -177,6 +201,12 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     start_time: String(startTime),
     end_time: String(endTime),
     status: resolvedStatus,
+    // Clear review metadata when a user edits/resubmits.
+    review_state: null,
+    requested_changes_at: null,
+    admin_note: null,
+    reviewed_at: null,
+    reviewed_by: null,
   };
 
   const { data: updatedBooking, error: updateError } = await sb

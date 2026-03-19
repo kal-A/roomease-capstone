@@ -6,14 +6,17 @@ import { ROOMS } from "@/data/rooms";
 import { getBuildingDisplayName } from "@/lib/buildings";
 import { DateTime } from "luxon";
 
-type ApiStatus = "pending" | "approved" | "denied" | "confirmed";
+type ApiStatus = "pending" | "approved" | "denied" | "confirmed" | "changes_requested";
 
-function normalizeApiStatus(raw: string): "Pending" | "Approved" | "Denied" | "Confirmed" {
+function normalizeApiStatus(
+  raw: string
+): "Pending" | "Approved" | "Denied" | "Confirmed" | "Changes Requested" {
   const v = String(raw ?? "").toLowerCase().trim();
   if (v === "pending") return "Pending";
   if (v === "approved") return "Approved";
   if (v === "denied") return "Denied";
   if (v === "confirmed") return "Confirmed";
+  if (v === "changes_requested") return "Changes Requested";
   return "Pending";
 }
 

@@ -11,7 +11,7 @@ import {
   roomIsStreamingRecordingCapable,
 } from "@/types/booking";
 
-export type BookingStatus = "pending" | "approved" | "denied" | "confirmed";
+export type BookingStatus = "pending" | "approved" | "denied" | "confirmed" | "changes_requested";
 
 export interface Booking {
   id: string;
@@ -20,6 +20,12 @@ export interface Booking {
   requiresApproval: boolean;
   confirmationNumber: string;
   createdAtIso: string;
+  // Admin review metadata (stored in Supabase; optional in client state).
+  adminNote?: string | null;
+  reviewState?: string | null;
+  reviewedAtIso?: string | null;
+  reviewedBy?: string | null;
+  requestedChangesAtIso?: string | null;
   // Event
   eventName: string;
   organizerName: string;
