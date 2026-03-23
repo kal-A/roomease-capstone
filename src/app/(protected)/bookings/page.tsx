@@ -22,6 +22,7 @@ import {
 } from "@/types/booking";
 
 type ViewMode = "list" | "calendar";
+type SortOption = "upcoming_first" | "upcoming_last" | "event_az" | "event_za";
 
 type MineBookingRow = {
   id: string | number;
@@ -122,6 +123,18 @@ function DayBookingsModal({
   onEdit: (b: Booking) => void;
   canEditBooking: (b: Booking) => boolean;
 }) {
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleEscape);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -205,6 +218,19 @@ function BookingDetailsModal({
   onEdit?: (() => void) | undefined;
   onDelete?: (() => void) | undefined;
 }) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleEscape);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "";
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden">
@@ -310,6 +336,7 @@ export default function MyBookingsPage() {
   const [editing, setEditing] = useState<Booking | null>(null);
   const [deleting, setDeleting] = useState<Booking | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [sort, setSort] = useState<SortOption>("upcoming_first");
   const [calendarMonth, setCalendarMonth] = useState(() => new Date().getMonth() + 1);
   const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear());
   const [dayModal, setDayModal] = useState<{ dateStr: string; dateLabel: string } | null>(null);
@@ -439,7 +466,23 @@ export default function MyBookingsPage() {
   }, [refetchMine]);
 
   const hasBookings = !mineLoading && bookings.length > 0;
-  const list = useMemo(() => bookings, [bookings]);
+  const list = useMemo(() => {
+    const toStartMs = (b: Booking) => {
+      const date = String(b.preferredDate ?? "");
+      const time = String(b.timeSlot ?? "00:00");
+      const t = Date.parse(`${date}T${time}:00`);
+      return Number.isFinite(t) ? t : 0;
+    };
+
+    const arr = [...bookings];
+    arr.sort((a, b) => {
+      if (sort === "event_az") return a.eventName.localeCompare(b.eventName);
+      if (sort === "event_za") return b.eventName.localeCompare(a.eventName);
+      if (sort === "upcoming_last") return toStartMs(b) - toStartMs(a);
+      return toStartMs(a) - toStartMs(b);
+    });
+    return arr;
+  }, [bookings, sort]);
 
   const monthGrid = useMemo(
     () => getMonthGrid(calendarYear, calendarMonth),
@@ -447,13 +490,13 @@ export default function MyBookingsPage() {
   );
   const bookingsByDate = useMemo(() => {
     const map: Record<string, Booking[]> = {};
-    for (const b of bookings) {
+    for (const b of list) {
       const d = b.preferredDate;
       if (!map[d]) map[d] = [];
       map[d].push(b);
     }
     return map;
-  }, [bookings]);
+  }, [list]);
   const dayModalBookings = dayModal ? (bookingsByDate[dayModal.dateStr] ?? []) : [];
 
   const prevMonth = () => {
@@ -490,29 +533,44 @@ export default function MyBookingsPage() {
           <p className="mt-2 text-lg text-[var(--textSecondary)]">Your scheduled room reservations.</p>
         </div>
         {hasBookings && (
-          <div className="flex rounded-full border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-1">
-            <button
-              type="button"
-              onClick={() => setViewMode("list")}
-              className={`rounded-full px-5 py-2 text-sm font-medium transition-all duration-200 ${
-                viewMode === "list"
-                  ? "bg-[var(--primary)] text-black shadow-lg"
-                  : "text-[var(--textSecondary)] hover:text-[var(--text)]"
-              }`}
-            >
-              List
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("calendar")}
-              className={`rounded-full px-5 py-2 text-sm font-medium transition-all duration-200 ${
-                viewMode === "calendar"
-                  ? "bg-[var(--primary)] text-black shadow-lg"
-                  : "text-[var(--textSecondary)] hover:text-[var(--text)]"
-              }`}
-            >
-              Calendar
-            </button>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <label className="flex items-center gap-2 text-sm text-[var(--textSecondary)]">
+              <span>Sort</span>
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortOption)}
+                className="rounded-xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md px-4 py-2 text-sm text-[var(--text)] transition-all duration-200 focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
+              >
+                <option value="upcoming_first">Upcoming first</option>
+                <option value="upcoming_last">Latest first</option>
+                <option value="event_az">Event: A to Z</option>
+                <option value="event_za">Event: Z to A</option>
+              </select>
+            </label>
+            <div className="flex rounded-full border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-1">
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                className={`rounded-full px-5 py-2 text-sm font-medium transition-all duration-200 ${
+                  viewMode === "list"
+                    ? "bg-[var(--primary)] text-black shadow-lg"
+                    : "text-[var(--textSecondary)] hover:text-[var(--text)]"
+                }`}
+              >
+                List
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("calendar")}
+                className={`rounded-full px-5 py-2 text-sm font-medium transition-all duration-200 ${
+                  viewMode === "calendar"
+                    ? "bg-[var(--primary)] text-black shadow-lg"
+                    : "text-[var(--textSecondary)] hover:text-[var(--text)]"
+                }`}
+              >
+                Calendar
+              </button>
+            </div>
           </div>
         )}
       </div>
