@@ -22,6 +22,7 @@ interface RoomDetailsModalProps {
   /** When showStartBooking is false, used for "Book this room" */
   onSelectRoom?: () => void;
   selectRoomButtonLabel?: string;
+  showRating?: boolean;
 }
 
 export function RoomDetailsModal({
@@ -31,6 +32,7 @@ export function RoomDetailsModal({
   showStartBooking,
   onSelectRoom,
   selectRoomButtonLabel = "Book this room",
+  showRating = true,
 }: RoomDetailsModalProps) {
   const { bookings } = useBookings();
   const [availabilityDate, setAvailabilityDate] = useState(() =>
@@ -126,10 +128,12 @@ export function RoomDetailsModal({
             <AVAndFurnitureSections room={room} animatedBadges={false} />
           </div>
 
-          <div>
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--textMuted)]">Rating</h3>
-            <RoomRating roomId={room.id} showRateForm />
-          </div>
+          {showRating && (
+            <div>
+              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--textMuted)]">Rating</h3>
+              <RoomRating roomId={room.id} showRateForm />
+            </div>
+          )}
 
           <div>
             <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--textMuted)]">Room ownership</h3>

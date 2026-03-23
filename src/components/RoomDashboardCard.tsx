@@ -15,6 +15,7 @@ interface RoomDashboardCardProps {
   hoveredRoomId?: string | number | null;
   onHoverStart?: () => void;
   onHoverEnd?: () => void;
+  showRating?: boolean;
 }
 
 const CAP_MAX = 400;
@@ -25,6 +26,7 @@ export function RoomDashboardCard({
   hoveredRoomId,
   onHoverStart,
   onHoverEnd,
+  showRating = true,
 }: RoomDashboardCardProps) {
   const [quickViewOpen, setQuickViewOpen] = useState(false);
   const { isInCompare, toggleCompare } = useCompare();
@@ -113,9 +115,11 @@ export function RoomDashboardCard({
             />
           </div>
         </div>
-        <div className="mt-3">
-          <RoomRating roomId={room.id} compact />
-        </div>
+        {showRating && (
+          <div className="mt-3">
+            <RoomRating roomId={room.id} compact />
+          </div>
+        )}
         <div className="mt-4 space-y-3">
           <AVAndFurnitureSections room={room} animatedBadges />
         </div>

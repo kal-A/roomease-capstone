@@ -159,6 +159,7 @@ export default function RoomsDashboardPage() {
                 hoveredRoomId={hoveredRoomId}
                 onHoverStart={handleHoverStart(room)}
                 onHoverEnd={handleHoverEnd}
+                showRating={false}
               />
             </motion.div>
           ))}
@@ -171,6 +172,7 @@ export default function RoomsDashboardPage() {
           isOpen
           onClose={() => setDetailsRoom(null)}
           showStartBooking
+          showRating={false}
         />
       )}
 
