@@ -33,7 +33,7 @@ function formatRange(startIso: string, endIso: string): string {
 export default function ExecRequestsPage() {
   const { data: session, status } = useSession();
   const role = session?.user?.role ?? getAppRoleFromEmail(session?.user?.email);
-  const allowed = role === "executive" || session?.user?.isAdmin;
+  const allowed = role === "executive";
 
   const [rows, setRows] = useState<RequestRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,7 +104,7 @@ export default function ExecRequestsPage() {
       <div className="mx-auto max-w-[900px] px-6 py-16">
         <EmptyState
           title="Executive inbox"
-          description="Member recommendations and booking requests from your clubs appear here for club executives and admins."
+          description="Member recommendations and booking requests from your clubs appear here for club executives."
           suggestion="Sign in with a club executive account to review incoming requests."
           action={
             <Link href="/dashboard" className="rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-[var(--primaryText)]">

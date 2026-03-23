@@ -55,12 +55,12 @@ export interface RolePermissions {
 
 export function getPermissionsForRole(role: AppRole): RolePermissions {
   const isAdmin = role === "admin";
-  const isExec = role === "executive" || isAdmin;
+  const isExec = role === "executive";
   return {
-    canCreateDirectBookings: isExec,
-    canEditDeleteOwnBookings: isExec,
+    canCreateDirectBookings: isExec || isAdmin,
+    canEditDeleteOwnBookings: isExec || isAdmin,
     canSubmitMemberRequests: role === "member",
-    canReviewMemberRequests: role === "executive" || isAdmin,
+    canReviewMemberRequests: role === "executive",
     canAccessAdminPortal: isAdmin,
     canViewGlobalAnalytics: isAdmin,
   };
@@ -106,8 +106,7 @@ export function getEffectiveAppRole(
   adminPortalMode: AdminPortalMode | null | undefined
 ): AppRole {
   const base = sessionRole ?? "executive";
-  if (base === "admin" && adminPortalMode === "user") {
-    return "executive";
-  }
+  // Admin remains admin-only regardless of portal mode.
+  if (base === "admin") return "admin";
   return base;
 }

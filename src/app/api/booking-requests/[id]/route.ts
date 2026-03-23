@@ -17,7 +17,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   }
 
   const role = session.user.role ?? getAppRoleFromEmail(session.user.email);
-  if (role !== "executive" && !session.user.isAdmin) {
+  if (role !== "executive") {
     return NextResponse.json({ error: "Only club executives can review requests." }, { status: 403 });
   }
 
@@ -49,12 +49,12 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   }
 
   const target = String((row as { target_executive_email?: string }).target_executive_email ?? "").toLowerCase();
-  if (!session.user.isAdmin && target !== execEmail) {
+  if (target !== execEmail) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const bookerEmail = session.user.isAdmin ? target : session.user.email.trim().toLowerCase();
-  const bookerName = session.user.isAdmin ? null : session.user.name ?? null;
+  const bookerEmail = session.user.email.trim().toLowerCase();
+  const bookerName = session.user.name ?? null;
 
   const statusNow = String((row as { status?: string }).status ?? "");
   if (statusNow !== "pending_exec_review") {

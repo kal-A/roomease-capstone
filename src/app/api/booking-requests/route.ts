@@ -30,17 +30,6 @@ export async function GET() {
       return NextResponse.json({ requests: data ?? [] });
     }
 
-    if (session.user.isAdmin) {
-      const { data, error } = await sb.from("booking_requests").select("*").order("created_at", { ascending: false });
-      if (error) {
-        if (String(error.message).includes("does not exist") || error.code === "42P01") {
-          return NextResponse.json({ requests: [] });
-        }
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-      return NextResponse.json({ requests: data ?? [] });
-    }
-
     if (role === "executive") {
       const { data, error } = await sb
         .from("booking_requests")
@@ -56,7 +45,7 @@ export async function GET() {
       return NextResponse.json({ requests: data ?? [] });
     }
 
-    return NextResponse.json({ requests: [] });
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   } catch (e) {
     console.error("booking-requests GET", e);
     return NextResponse.json({ requests: [] });

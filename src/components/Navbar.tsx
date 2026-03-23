@@ -95,7 +95,7 @@ export function Navbar() {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
   const effectiveRole = getEffectiveAppRole(sessionRole, adminMode);
-  const showExecTools = effectiveRole === "executive" || sessionRole === "admin";
+  const showExecTools = effectiveRole === "executive";
   const showMemberStyleBooking = effectiveRole === "member";
   const isHome = pathname === "/";
   const isAuthStage = pathname?.startsWith("/auth");
@@ -207,6 +207,11 @@ export function Navbar() {
                   Requests
                 </NavLink>
               )}
+              {session.user?.isAdmin && (
+                <NavLink href="/admin" active={pathname?.startsWith("/admin")}>
+                  Admin
+                </NavLink>
+              )}
               <Link
                 href="/book"
                 className={`${primaryButtonClass} ${isBook ? "shadow-md" : ""}`}
@@ -252,7 +257,7 @@ export function Navbar() {
                         </div>
                         {sessionRole === "admin" && adminMode === "user" && (
                           <p className="text-[11px] text-[var(--textSecondary)] leading-snug">
-                            User view: browsing as a club executive experience. Admin Portal stays available below.
+                            User view is visual-only. Admin permissions remain unchanged.
                           </p>
                         )}
                       </div>
