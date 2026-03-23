@@ -163,14 +163,14 @@ export function EditBookingModal({ booking, isOpen, onClose, onSaveSuccess, onDe
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[120] flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="edit-booking-title"
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
       <div
-        className="relative z-10 w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surfaceElevated)] shadow-[var(--shadowXl)]"
+        className="relative z-10 w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surfaceElevated)] shadow-[var(--shadowXl)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-[var(--border)] p-4">
@@ -230,7 +230,7 @@ export function EditBookingModal({ booking, isOpen, onClose, onSaveSuccess, onDe
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-4">
+        <form id="edit-booking-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-4">
           <p className="text-sm text-[var(--textMuted)]">Confirmation #{booking.confirmationNumber} (unchanged)</p>
           <p className="text-sm text-[var(--textMuted)]">Room: {booking.roomName}</p>
 
@@ -316,9 +316,12 @@ export function EditBookingModal({ booking, isOpen, onClose, onSaveSuccess, onDe
             />
           </div>
 
-          <div className="flex gap-3 pt-2">
+        </form>
+        <div className="sticky bottom-0 z-20 border-t border-[var(--border)] bg-[var(--surfaceElevated)] p-4">
+          <div className="flex gap-3">
             <button
               type="submit"
+              form="edit-booking-form"
               disabled={isSaving}
               className={`flex-1 rounded-xl bg-[#FFD100] py-3 font-semibold text-black shadow-lg transition hover:bg-[#e6bc00] focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:ring-offset-2 focus:ring-offset-[#1A1A1A] ${
                 isSaving ? "cursor-not-allowed opacity-70" : ""
@@ -334,7 +337,7 @@ export function EditBookingModal({ booking, isOpen, onClose, onSaveSuccess, onDe
               Cancel
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
