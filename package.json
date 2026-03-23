@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "rooms:convert": "node scripts/convertRoomsToJson.js"
+    "rooms:convert": "node scripts/convertRoomsToJson.js",
+    "rooms:sync": "node scripts/sync-rooms-to-supabase.js",
+    "rooms:sync:apply": "node scripts/sync-rooms-to-supabase.js --apply"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",

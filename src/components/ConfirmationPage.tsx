@@ -7,6 +7,7 @@ import type { EventFormData, Room } from "@/types/booking";
 import { DateTime } from "luxon";
 import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
 import { ApprovalBadge } from "@/components/ApprovalBadge";
+import type { BookingStatus } from "@/lib/bookingsStore";
 
 interface ConfirmationPageProps {
   formData: EventFormData;
@@ -14,6 +15,7 @@ interface ConfirmationPageProps {
   confirmationNumber: string;
   onBookAnother: () => void;
   bookedByName?: string | null;
+  bookingStatus?: BookingStatus | string | null;
 }
 
 export function ConfirmationPage({
@@ -22,9 +24,65 @@ export function ConfirmationPage({
   confirmationNumber,
   onBookAnother,
   bookedByName,
+  bookingStatus,
 }: ConfirmationPageProps) {
   const approvalRequired = getRoomMetadataWithDefaults(room.id).approvalRequired === true;
   const durationMin = formData.durationMinutes ?? 60;
+
+  const normalizedStatus: BookingStatus = (() => {
+    const v = String(bookingStatus ?? "").toLowerCase().trim();
+    if (
+      v === "pending" ||
+      v === "approved" ||
+      v === "denied" ||
+      v === "confirmed" ||
+      v === "changes_requested"
+    )
+      return v as BookingStatus;
+    // Fallback for safety if bookingStatus is missing (shouldn't happen in normal flow).
+    return approvalRequired ? "pending" : "confirmed";
+  })();
+
+  const { title, subtitle, iconKind } = (() => {
+    switch (normalizedStatus) {
+      case "confirmed":
+        return {
+          title: "Room Successfully Booked",
+          subtitle: "Your room has been successfully reserved.",
+          iconKind: "success" as const,
+        };
+      case "approved":
+        return {
+          title: "Booking Approved",
+          subtitle: "Your room has been approved and reserved.",
+          iconKind: "success" as const,
+        };
+      case "pending":
+        return {
+          title: "Booking Submitted for Approval",
+          subtitle: "An admin will review your request.",
+          iconKind: "pending" as const,
+        };
+      case "changes_requested":
+        return {
+          title: "Changes Requested",
+          subtitle: "An admin requested updates before approval. Please resubmit with the requested changes.",
+          iconKind: "pending" as const,
+        };
+      case "denied":
+        return {
+          title: "Booking Denied",
+          subtitle: "This request could not be approved.",
+          iconKind: "denied" as const,
+        };
+      default:
+        return {
+          title: "Room Successfully Booked",
+          subtitle: "Your room has been successfully reserved.",
+          iconKind: "success" as const,
+        };
+    }
+  })();
 
   const startAndEnd = useMemo(() => {
     if (!formData.preferredDate || !formData.timeSlot) return null;
@@ -78,18 +136,36 @@ export function ConfirmationPage({
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.25, ease: "easeOut", delay: 0.05 }}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--success)]/15 border border-[var(--success)]/35"
+            className={`flex h-14 w-14 items-center justify-center rounded-full border ${
+              iconKind === "pending"
+                ? "bg-[var(--primary)]/15 border-[var(--primary)]/35"
+                : iconKind === "denied"
+                  ? "bg-[var(--danger)]/15 border-[var(--danger)]/35"
+                  : "bg-[var(--success)]/15 border-[var(--success)]/35"
+            }`}
           >
-            <svg className="h-7 w-7 text-[var(--success)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <circle cx="12" cy="12" r="10" />
-              <path d="M16 8l-6 6-2-2" />
-            </svg>
+            {iconKind === "pending" ? (
+              <svg className="h-7 w-7 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 7v5l3 2" />
+              </svg>
+            ) : iconKind === "denied" ? (
+              <svg className="h-7 w-7 text-[var(--danger)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="12" cy="12" r="10" />
+                <path d="M15 9l-6 6M9 9l6 6" />
+              </svg>
+            ) : (
+              <svg className="h-7 w-7 text-[var(--success)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="12" cy="12" r="10" />
+                <path d="M16 8l-6 6-2-2" />
+              </svg>
+            )}
           </motion.div>
 
-          <h1 className="mt-5 text-2xl font-bold tracking-tight text-[var(--text)]">Booking Confirmed</h1>
-          <p className="mt-1 text-sm text-[var(--textSecondary)]">Your room has been successfully reserved.</p>
+          <h1 className="mt-5 text-2xl font-bold tracking-tight text-[var(--text)]">{title}</h1>
+          <p className="mt-1 text-sm text-[var(--textSecondary)]">{subtitle}</p>
 
-          {approvalRequired && (
+          {normalizedStatus === "pending" && (
             <div className="mt-3">
               <ApprovalBadge variant="pending" />
             </div>

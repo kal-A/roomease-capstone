@@ -1,35 +1,75 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useBookings, type Booking, formatBookingTime } from "@/lib/bookingsStore";
 import { EditBookingModal } from "@/components/EditBookingModal";
 import { DeleteBookingModal } from "@/components/DeleteBookingModal";
 import { EmptyState } from "@/components/EmptyState";
 import { getBuildingTicketLabel } from "@/lib/buildings";
-import { formatTimeSlot } from "@/types/booking";
 import { ApprovalBadge } from "@/components/ApprovalBadge";
+import { DateTime } from "luxon";
+import { ROOMS } from "@/data/rooms";
+import { formatFurniture } from "@/lib/furniture";
+import {
+  formatTimeSlot,
+  roomHasDocumentCamera,
+  roomIsElectronicClassroom,
+  roomIsStreamingRecordingCapable,
+  type Room,
+} from "@/types/booking";
 
 type ViewMode = "list" | "calendar";
+
+type MineBookingRow = {
+  id: string | number;
+  room_id?: string | number | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  status?: string | null;
+  event_name?: string | null;
+  organizer_name?: string | null;
+  booker_email?: string | null;
+  group_size?: number | null;
+  created_at?: string | null;
+  event_type?: string | null;
+
+  // Optional camelCase fallbacks (in case DB driver/transform changes)
+  roomId?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  eventName?: string | null;
+  organizerName?: string | null;
+  bookerEmail?: string | null;
+  groupSize?: number | null;
+  createdAt?: string | null;
+  eventType?: string | null;
+};
 
 function statusUi(status: Booking["status"]): { label: string; badgeClass: string; subtitle: string } {
   switch (status) {
     case "pending":
       return {
         label: "Pending Approval",
-        subtitle: "Awaiting admin review",
+        subtitle: "Awaiting review",
+        badgeClass: "border-[var(--borderStrong)] bg-[var(--surfaceElevated)] text-[var(--textSecondary)]",
+      };
+    case "changes_requested":
+      return {
+        label: "Changes Requested",
+        subtitle: "Updates requested before approval",
         badgeClass: "border-[var(--borderStrong)] bg-[var(--surfaceElevated)] text-[var(--textSecondary)]",
       };
     case "approved":
       return {
         label: "Approved",
-        subtitle: "Approved by admin",
+        subtitle: "Booking approved",
         badgeClass: "border-[var(--successBorder)] bg-[var(--successBg)] text-[var(--success)]",
       };
     case "denied":
       return {
         label: "Denied",
-        subtitle: "Booking denied",
+        subtitle: "Booking request was denied",
         badgeClass: "border-[var(--dangerBorder)] bg-[var(--dangerBg)] text-[var(--danger)]",
       };
     default:
@@ -123,7 +163,7 @@ function DayBookingsModal({
                   >
                     View
                   </button>
-                  {(b.status === "approved" || b.status === "confirmed") && (
+                  {(b.status === "pending" || b.status === "changes_requested" || b.status === "approved" || b.status === "confirmed") && (
                     <button
                       type="button"
                       onClick={() => { onEdit(b); onClose(); }}
@@ -184,9 +224,9 @@ function BookingDetailsModal({
               <p className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium mt-1 ${statusUi(booking.status).badgeClass}`}>
                 {statusUi(booking.status).label}
               </p>
-              {booking.requiresApproval && booking.status === "pending" && (
+              {(booking.requiresApproval && (booking.status === "pending" || booking.status === "changes_requested")) && (
                 <div className="mt-2">
-                  <ApprovalBadge variant="pending" />
+                  <ApprovalBadge variant={booking.status === "changes_requested" ? "changes_requested" : "pending"} />
                 </div>
               )}
             </div>
@@ -211,6 +251,15 @@ function BookingDetailsModal({
               ))}
             </div>
           </div>
+
+          {(booking.adminNote ?? "").trim() !== "" && (booking.status === "denied" || booking.status === "changes_requested") && (
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
+              <p className="text-sm font-semibold text-[var(--text)]">
+                {booking.status === "denied" ? "Reason provided by admin" : "Changes requested by admin"}
+              </p>
+              <p className="mt-2 text-sm text-[var(--textSecondary)] whitespace-pre-wrap">{booking.adminNote}</p>
+            </div>
+          )}
         </div>
         <div className="border-t border-[var(--border)] p-6 flex flex-wrap gap-2 justify-end">
           <button type="button" onClick={onClose} className="rounded-full border border-[var(--border)] bg-transparent px-5 py-2.5 font-medium text-[var(--textSecondary)] hover:bg-[var(--border)]/50 hover:text-[var(--text)]">Close</button>
@@ -234,7 +283,7 @@ const MONTH_NAMES = [
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function MyBookingsPage() {
-  const { bookings, cancelBooking } = useBookings();
+  const { bookings, replaceBookings } = useBookings();
   const [details, setDetails] = useState<Booking | null>(null);
   const [editing, setEditing] = useState<Booking | null>(null);
   const [deleting, setDeleting] = useState<Booking | null>(null);
@@ -243,7 +292,131 @@ export default function MyBookingsPage() {
   const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear());
   const [dayModal, setDayModal] = useState<{ dateStr: string; dateLabel: string } | null>(null);
 
-  const hasBookings = bookings.length > 0;
+  const roomsById = useMemo(() => new Map(ROOMS.map((r) => [String(r.id), r])), []);
+  const bookingsRef = useRef<Booking[]>(bookings);
+  const [mineLoading, setMineLoading] = useState(true);
+  const [mineError, setMineError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; variant: "success" | "danger" } | null>(null);
+
+  useEffect(() => {
+    bookingsRef.current = bookings;
+  }, [bookings]);
+
+  const showToast = useCallback((message: string, variant: "success" | "danger") => {
+    setToast({ message, variant });
+    window.setTimeout(() => setToast(null), 3200);
+  }, []);
+
+  const refetchMine = useCallback(async () => {
+    const res = await fetch("/api/bookings/mine", { method: "GET" });
+    if (!res.ok) {
+      const json = (await res.json().catch(() => ({}))) as { error?: unknown };
+      const msg = typeof json.error === "string" ? json.error : "Could not refresh bookings.";
+      throw new Error(msg);
+    }
+
+    const json = (await res.json().catch(() => ({ bookings: [] }))) as { bookings?: unknown[] };
+    const rows = Array.isArray(json.bookings) ? json.bookings : [];
+
+    const mapped: Booking[] = rows.map((row) => {
+      const b = row as MineBookingRow;
+      const backendId = String(b.id);
+      const roomId = String(b.room_id ?? b.roomId ?? "");
+      const room = roomsById.get(roomId) ?? null;
+
+      const statusRaw = String(b.status ?? "").toLowerCase().trim();
+      const reviewStateRaw = String(b.review_state ?? "").toLowerCase().trim();
+      const status =
+        reviewStateRaw === "changes_requested" && statusRaw === "pending"
+          ? ("changes_requested" as Booking["status"])
+          : statusRaw === "pending" ||
+              statusRaw === "approved" ||
+              statusRaw === "denied" ||
+              statusRaw === "confirmed" ||
+              statusRaw === "changes_requested"
+                ? statusRaw
+                : ("pending" as Booking["status"]);
+
+      const requiresApproval = status !== "confirmed";
+
+      const startIso = (b.start_time ?? b.startTime ?? "") as string;
+      const endIso = (b.end_time ?? b.endTime ?? "") as string;
+      const start = startIso ? DateTime.fromISO(startIso).setZone("America/Toronto") : DateTime.invalid("invalid");
+      const end = endIso ? DateTime.fromISO(endIso).setZone("America/Toronto") : DateTime.invalid("invalid");
+      const preferredDate = start.isValid ? start.toFormat("yyyy-LL-dd") : "";
+      const timeSlot = start.isValid ? start.toFormat("HH:mm") : "";
+      const durationMinutesRaw = start.isValid && end.isValid ? end.diff(start, "minutes").minutes : 60;
+      const durationMinutes = Number.isFinite(durationMinutesRaw) ? Math.max(1, Math.round(durationMinutesRaw)) : 60;
+
+      const existing = bookingsRef.current.find((x) => String(x.backendId ?? "") === backendId);
+      const confirmationNumber = existing?.confirmationNumber ?? `CONF-${backendId.slice(-4)}`;
+
+      const furnitureShort = room ? formatFurniture(room.furniture).short : "";
+      const furnitureLabels = furnitureShort ? furnitureShort.split("; ").join(" • ") : "";
+
+      const avBadges: string[] = [];
+      if (room) {
+        if (roomIsStreamingRecordingCapable(room as Room)) avBadges.push("Streaming & Recording Ready");
+        if (roomIsElectronicClassroom(room as Room)) avBadges.push("Electronic Classroom");
+        if (roomHasDocumentCamera(room as Room)) avBadges.push("Document Camera Available");
+      }
+
+      const roomName = room?.name ?? roomId;
+      const building = room?.building ?? "";
+      const capacity = Number(room?.capacity ?? 0);
+
+      return {
+        id: backendId,
+        backendId,
+        status,
+        requiresApproval,
+        confirmationNumber,
+        createdAtIso: b.created_at ?? b.createdAt ? new Date(String(b.created_at ?? b.createdAt)).toISOString() : new Date().toISOString(),
+        adminNote: b.admin_note ?? null,
+        reviewState: b.review_state ?? null,
+        reviewedAtIso: b.reviewed_at ? new Date(String(b.reviewed_at)).toISOString() : null,
+        reviewedBy: b.reviewed_by ?? null,
+        requestedChangesAtIso: b.requested_changes_at ? new Date(String(b.requested_changes_at)).toISOString() : null,
+        eventName: String(b.event_name ?? b.eventName ?? ""),
+        organizerName: String(b.organizer_name ?? b.organizerName ?? ""),
+        organizerEmail: b.booker_email ?? b.bookerEmail ? String(b.booker_email ?? b.bookerEmail) : undefined,
+        eventType: String(b.event_type ?? b.eventType ?? ""),
+        preferredDate,
+        timeSlot,
+        durationMinutes,
+        groupSize: Number(b.group_size ?? b.groupSize ?? 0),
+        roomId,
+        roomName,
+        building,
+        capacity,
+        furnitureLabels,
+        avBadges,
+      };
+    });
+
+    replaceBookings(mapped);
+  }, [replaceBookings, roomsById]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setMineLoading(true);
+        setMineError(null);
+        await refetchMine();
+      } catch (e) {
+        if (cancelled) return;
+        setMineError(e instanceof Error ? e.message : "Could not load bookings.");
+      } finally {
+        if (!cancelled) setMineLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [refetchMine]);
+
+  const hasBookings = !mineLoading && bookings.length > 0;
   const list = useMemo(() => bookings, [bookings]);
 
   const monthGrid = useMemo(
@@ -276,6 +449,19 @@ export default function MyBookingsPage() {
 
   return (
     <div className="mx-auto max-w-[1200px] px-6 py-12 sm:px-8 sm:py-16 lg:px-10">
+      {toast && (
+        <div
+          className={`fixed right-5 top-5 z-[100] rounded-2xl border px-4 py-3 shadow-lg ${
+            toast.variant === "success"
+              ? "border-[var(--successBorder)] bg-[var(--successBg)] text-[var(--success)]"
+              : "border-[var(--dangerBorder)] bg-[var(--dangerBg)] text-[var(--danger)]"
+          }`}
+          role="status"
+          aria-live="polite"
+        >
+          <p className="text-sm font-semibold">{toast.message}</p>
+        </div>
+      )}
       <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-4xl font-bold tracking-tight text-[var(--text)] sm:text-5xl" style={{ letterSpacing: "-0.02em" }}>My Bookings</h1>
@@ -309,7 +495,17 @@ export default function MyBookingsPage() {
         )}
       </div>
 
-      {!hasBookings ? (
+      {mineError && (
+        <div className="mb-4 rounded-2xl border border-[var(--danger)] bg-[var(--dangerBg)] p-4 text-[var(--textSecondary)]">
+          {mineError}
+        </div>
+      )}
+
+      {mineLoading ? (
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 shadow-lg">
+          <p className="text-[var(--textSecondary)]">Loading your bookings...</p>
+        </div>
+      ) : !hasBookings ? (
         <EmptyState
           icon={
             <svg className="h-12 w-12 text-[var(--textMuted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2} aria-hidden>
@@ -418,9 +614,9 @@ export default function MyBookingsPage() {
                   <span className="text-[var(--textMuted)]">Room:</span> {b.roomName}
                 </p>
                 <p className="text-[var(--textMuted)] font-mono text-xs">Confirmation #{b.confirmationNumber}</p>
-                {b.requiresApproval && b.status === "pending" && (
+                {b.requiresApproval && (b.status === "pending" || b.status === "changes_requested") && (
                   <div className="pt-1">
-                    <ApprovalBadge variant="pending" />
+                    <ApprovalBadge variant={b.status === "changes_requested" ? "changes_requested" : "pending"} />
                   </div>
                 )}
               </div>
@@ -453,7 +649,7 @@ export default function MyBookingsPage() {
                 >
                   View details
                 </button>
-                {(b.status === "approved" || b.status === "confirmed") && (
+                {(b.status === "pending" || b.status === "changes_requested" || b.status === "approved" || b.status === "confirmed") && (
                   <button
                     type="button"
                     onClick={() => setEditing(b)}
@@ -487,12 +683,37 @@ export default function MyBookingsPage() {
           onDelete={() => { setDeleting(details); setDetails(null); }}
         />
       )}
-      {editing && <EditBookingModal booking={editing} isOpen={!!editing} onClose={() => setEditing(null)} />}
+      {editing && (
+        <EditBookingModal
+          booking={editing}
+          isOpen={!!editing}
+          onClose={() => setEditing(null)}
+          onSaveSuccess={async () => {
+            await refetchMine();
+            showToast("Booking updated", "success");
+          }}
+          onDeleteSuccess={async () => {
+            await refetchMine();
+            showToast("Booking deleted", "success");
+          }}
+        />
+      )}
       {deleting && (
         <DeleteBookingModal
           isOpen={!!deleting}
           onClose={() => setDeleting(null)}
-          onConfirm={() => deleting && cancelBooking(deleting.id)}
+          onConfirm={async () => {
+            if (!deleting) return;
+            if (!deleting.backendId) throw new Error("This booking cannot be deleted (missing backend id).");
+            const res = await fetch(`/api/bookings/${deleting.backendId}`, { method: "DELETE" });
+            if (!res.ok) {
+              const json = (await res.json().catch(() => ({}))) as { error?: unknown };
+              const msg = typeof json.error === "string" ? json.error : "Delete failed.";
+              throw new Error(msg);
+            }
+            await refetchMine();
+            showToast("Booking deleted", "success");
+          }}
           eventName={deleting?.eventName}
         />
       )}

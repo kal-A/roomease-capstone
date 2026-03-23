@@ -33,7 +33,7 @@ function SignInContent() {
               Sign in to RoomEase
             </h1>
             <p className="text-lg leading-relaxed text-[var(--textSecondary)]">
-              A campus-style booking experience for demos — with live availability simulation, conflict-aware booking, and admin approvals.
+              A campus-style booking experience with live availability, conflict-aware scheduling, and admin approvals.
             </p>
             <div className="flex flex-wrap gap-2">
               {["Live availability", "Conflict-aware booking", "Ratings & quality signals"].map((t) => (

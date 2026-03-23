@@ -36,7 +36,8 @@ export function RoomRecommendation({
   bookingConflictContext,
 }: RoomRecommendationProps) {
   const [detailsRoom, setDetailsRoom] = useState<Room | null>(null);
-  const isTimeConflictError = doubleBookingError ? /booked|blocked/i.test(doubleBookingError) : false;
+  const isTimeConflictError = doubleBookingError ? /booked|blocked|blocker/i.test(doubleBookingError) : false;
+  const isRoomNotConfiguredError = doubleBookingError?.includes("not yet configured in the booking system") ?? false;
 
   if (matchingRooms.length === 0) {
     return (
@@ -83,8 +84,12 @@ export function RoomRecommendation({
                 <>
                   <div className="text-sm font-bold text-[var(--text)]">Time slot unavailable</div>
                   <div className="mt-0.5 text-xs font-medium text-[var(--textSecondary)]">
-                    {bookingConflictContext?.isMine
-                      ? "You already have this room booked for that time."
+                    {bookingConflictContext
+                      ? String(bookingConflictContext.organizerName ?? "").toLowerCase().includes("blocked")
+                        ? "This room is unavailable due to a blocker or closure."
+                        : bookingConflictContext.isMine
+                          ? "You already have this room booked for that time."
+                          : "This room is already booked for that time."
                       : "This room is already booked for that time."}
                   </div>
                   <div className="mt-2 text-xs text-[var(--textSecondary)]">Try a different time or choose one of the options below.</div>
@@ -92,13 +97,17 @@ export function RoomRecommendation({
                     {bookingConflictContext
                       ? bookingConflictContext.isMine
                         ? `Your booking · ${bookingConflictContext.timeLabel}`
-                        : `Booked by ${bookingConflictContext.organizerName} · ${bookingConflictContext.timeLabel}`
+                        : String(bookingConflictContext.organizerName ?? "").toLowerCase().includes("blocked")
+                          ? `${bookingConflictContext.organizerName} · ${bookingConflictContext.timeLabel}`
+                          : `Booked by ${bookingConflictContext.organizerName} · ${bookingConflictContext.timeLabel}`
                       : doubleBookingError}
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="text-sm font-bold text-[var(--text)]">Booking couldn’t be confirmed</div>
+                  <div className="text-sm font-bold text-[var(--text)]">
+                    {isRoomNotConfiguredError ? doubleBookingError : "Booking couldn’t be confirmed"}
+                  </div>
                   <div className="mt-1 text-xs font-medium text-[var(--textSecondary)]">{doubleBookingError}</div>
                   <div className="mt-2 text-xs text-[var(--textSecondary)]">Review the details and try again.</div>
                 </>

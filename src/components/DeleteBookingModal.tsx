@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
 interface DeleteBookingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void> | void;
   eventName?: string;
 }
 
@@ -16,8 +16,13 @@ export function DeleteBookingModal({
   onConfirm,
   eventName = "this booking",
 }: DeleteBookingModalProps) {
+  const [error, setError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   useEffect(() => {
     if (!isOpen) return;
+    setError(null);
+    setIsDeleting(false);
     const handleEscape = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", handleEscape);
     document.body.style.overflow = "hidden";
@@ -61,12 +66,29 @@ export function DeleteBookingModal({
           </button>
           <button
             type="button"
-            onClick={() => { onConfirm(); onClose(); }}
+            disabled={isDeleting}
+            onClick={async () => {
+              setIsDeleting(true);
+              try {
+                await onConfirm();
+                onClose();
+              } catch (e) {
+                const msg = e instanceof Error ? e.message : "Delete failed. Please try again.";
+                setError(msg);
+              } finally {
+                setIsDeleting(false);
+              }
+            }}
             className="flex-1 rounded-xl border-2 border-[var(--danger)] bg-transparent py-2.5 text-sm font-semibold text-[var(--danger)] hover:bg-[var(--danger)]/10 focus:outline-none focus:ring-2 focus:ring-[var(--danger)]/50"
           >
-            Delete
+            {isDeleting ? "Deleting..." : "Delete"}
           </button>
         </div>
+        {error && (
+          <p className="mt-3 text-xs font-semibold text-[var(--danger)]" role="alert">
+            {error}
+          </p>
+        )}
       </motion.div>
     </div>
   );
