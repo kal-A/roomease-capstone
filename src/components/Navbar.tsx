@@ -5,6 +5,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { AnimatePresence, motion } from "framer-motion";
+import type { AppRole } from "@/lib/userRole";
+import {
+  getAppRoleFromEmail,
+  getEffectiveAppRole,
+  readAdminPortalMode,
+  writeAdminPortalMode,
+  type AdminPortalMode,
+} from "@/lib/userRole";
+import { RoleBadge } from "./RoleBadge";
 
 function ThemeToggle() {
   const [theme, setThemeState] = useState<"dark" | "light">("dark");
@@ -75,6 +84,19 @@ export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, status } = useSession();
+  const sessionRole = (session?.user?.role as AppRole | undefined) ?? getAppRoleFromEmail(session?.user?.email);
+  const [adminMode, setAdminMode] = useState<AdminPortalMode>("admin");
+  useEffect(() => {
+    setAdminMode(readAdminPortalMode());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "roomease.adminPortalMode") setAdminMode(readAdminPortalMode());
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+  const effectiveRole = getEffectiveAppRole(sessionRole, adminMode);
+  const showExecTools = effectiveRole === "executive" || sessionRole === "admin";
+  const showMemberStyleBooking = effectiveRole === "member";
   const isHome = pathname === "/";
   const isAuthStage = pathname?.startsWith("/auth");
   const isRooms = pathname === "/rooms";
@@ -187,27 +209,34 @@ export function Navbar() {
               <NavLink href="/bookings" active={isBookings}>My Bookings</NavLink>
               <NavLink href="/compare" active={isCompare}>Compare</NavLink>
               <NavLink href="/analytics" active={isAnalytics}>Analytics</NavLink>
+              <NavLink href="/dashboard" active={pathname === "/dashboard"}>Dashboard</NavLink>
+              {showExecTools && (
+                <NavLink href="/exec/requests" active={pathname === "/exec/requests"}>
+                  Requests
+                </NavLink>
+              )}
               <Link
                 href="/book"
                 className={`${primaryButtonClass} ${isBook ? "shadow-md" : ""}`}
                 style={primaryButtonStyle}
               >
-                Start Booking
+                {showMemberStyleBooking ? "Find a room" : "Start Booking"}
               </Link>
 
               <div className="relative" ref={profileRef}>
                 <button
                   type="button"
                   onClick={() => setProfileOpen((o) => !o)}
-                  className="inline-flex max-w-[220px] items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2 text-sm font-medium text-[var(--text)] transition-all duration-200 hover:border-[var(--borderStrong)] hover:bg-[var(--surfaceElevated)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] active:scale-[0.99]"
+                  className="inline-flex max-w-[280px] items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2 text-sm font-medium text-[var(--text)] transition-all duration-200 hover:border-[var(--borderStrong)] hover:bg-[var(--surfaceElevated)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] active:scale-[0.99]"
                   title={session.user?.email ?? undefined}
                   aria-haspopup="menu"
                   aria-expanded={profileOpen}
                 >
+                  <RoleBadge role={effectiveRole} compact />
                   <span className="truncate">
                     {session.user?.name ?? session.user?.email ?? "Profile"}
                   </span>
-                  <svg className={`h-4 w-4 text-[var(--textMuted)] transition-transform ${profileOpen ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                  <svg className={`h-4 w-4 shrink-0 text-[var(--textMuted)] transition-transform ${profileOpen ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
                     <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd" />
                   </svg>
                 </button>
@@ -219,13 +248,61 @@ export function Navbar() {
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.98, y: -6 }}
                       transition={{ duration: 0.16 }}
-                      className="absolute right-0 mt-2 w-56 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surfaceElevated)] shadow-[var(--shadowLg)] backdrop-blur-md"
+                      className="absolute right-0 mt-2 w-64 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surfaceElevated)] shadow-[var(--shadowLg)] backdrop-blur-md"
                       role="menu"
                     >
-                      <div className="px-4 py-3 border-b border-[var(--border)]">
+                      <div className="px-4 py-3 border-b border-[var(--border)] space-y-2">
                         <p className="text-xs font-semibold text-[var(--textSecondary)]">Signed in as</p>
-                        <p className="mt-0.5 text-sm font-medium text-[var(--text)] truncate">{session.user?.email ?? "—"}</p>
+                        <p className="text-sm font-medium text-[var(--text)] truncate">{session.user?.email ?? "—"}</p>
+                        <div className="flex items-center gap-2 pt-1">
+                          <span className="text-xs text-[var(--textMuted)]">Role</span>
+                          <RoleBadge role={sessionRole} />
+                        </div>
+                        {sessionRole === "admin" && adminMode === "user" && (
+                          <p className="text-[11px] text-[var(--textSecondary)] leading-snug">
+                            User view: browsing as a club executive experience. Admin Portal stays available below.
+                          </p>
+                        )}
                       </div>
+                      {session.user?.isAdmin && (
+                        <div className="border-b border-[var(--border)] px-4 py-3 space-y-2">
+                          <p className="text-xs font-semibold text-[var(--textSecondary)]">Portal mode</p>
+                          <div
+                            className="flex rounded-full border border-[var(--border)] bg-[var(--surface)] p-0.5"
+                            role="group"
+                            aria-label="Admin or user view"
+                          >
+                            <button
+                              type="button"
+                              className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                adminMode === "admin"
+                                  ? "bg-[var(--gold)] text-[var(--primaryText)] shadow-sm"
+                                  : "text-[var(--textSecondary)] hover:text-[var(--text)]"
+                              }`}
+                              onClick={() => {
+                                writeAdminPortalMode("admin");
+                                setAdminMode("admin");
+                              }}
+                            >
+                              Admin
+                            </button>
+                            <button
+                              type="button"
+                              className={`flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                adminMode === "user"
+                                  ? "bg-[var(--gold)] text-[var(--primaryText)] shadow-sm"
+                                  : "text-[var(--textSecondary)] hover:text-[var(--text)]"
+                              }`}
+                              onClick={() => {
+                                writeAdminPortalMode("user");
+                                setAdminMode("user");
+                              }}
+                            >
+                              User
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       {session.user?.isAdmin && (
                         <Link
                           href="/admin"

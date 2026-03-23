@@ -16,6 +16,8 @@ interface ConfirmationPageProps {
   onBookAnother: () => void;
   bookedByName?: string | null;
   bookingStatus?: BookingStatus | string | null;
+  /** Club members complete a recommendation request instead of a live booking. */
+  flow?: "booking" | "member_request";
 }
 
 export function ConfirmationPage({
@@ -25,9 +27,72 @@ export function ConfirmationPage({
   onBookAnother,
   bookedByName,
   bookingStatus,
+  flow = "booking",
 }: ConfirmationPageProps) {
   const approvalRequired = getRoomMetadataWithDefaults(room.id).approvalRequired === true;
   const durationMin = formData.durationMinutes ?? 60;
+
+  if (flow === "member_request") {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+        className="mx-auto w-full max-w-[720px] px-6"
+      >
+        <div className="rounded-xl bg-[var(--surface)] shadow-md border border-[var(--border)] p-8">
+          <div className="flex flex-col items-center text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full border bg-[var(--success)]/15 border-[var(--success)]/35">
+              <svg className="h-7 w-7 text-[var(--success)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="12" cy="12" r="10" />
+                <path d="M16 8l-6 6-2-2" />
+              </svg>
+            </div>
+            <h1 className="mt-5 text-2xl font-bold tracking-tight text-[var(--text)]">Recommendation sent</h1>
+            <p className="mt-1 text-sm text-[var(--textSecondary)] max-w-md">
+              Your club executive will review the details. If they approve, the room will be booked or submitted for admin approval when required.
+            </p>
+          </div>
+          <dl className="mt-7 grid gap-4 sm:grid-cols-2">
+            <div>
+              <dt className="text-xs font-medium text-[var(--textMuted)]">Reference</dt>
+              <dd className="mt-1 text-sm font-semibold text-[var(--text)] font-mono">{confirmationNumber}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-[var(--textMuted)]">Room</dt>
+              <dd className="mt-1 text-sm font-semibold text-[var(--text)]">{room.name}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-[var(--textMuted)]">Event</dt>
+              <dd className="mt-1 text-sm font-semibold text-[var(--text)]">{formData.eventName}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-[var(--textMuted)]">Requested by</dt>
+              <dd className="mt-1 text-sm font-semibold text-[var(--text)]">{bookedByName ?? "—"}</dd>
+            </div>
+          </dl>
+          <div className="mt-7 grid gap-3 sm:grid-cols-2">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surfaceElevated)] px-5 py-3 text-sm font-semibold text-[var(--text)] transition-all duration-200 hover:border-[var(--borderStrong)]"
+            >
+              Open dashboard
+            </Link>
+            <Link
+              href="/book"
+              onClick={onBookAnother}
+              className="inline-flex items-center justify-center rounded-xl bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primaryText)] shadow-md transition-all duration-200 hover:bg-[var(--primaryHover)]"
+            >
+              Explore more rooms
+            </Link>
+          </div>
+          <p className="mt-6 text-center text-xs text-[var(--textSecondary)]">
+            Track club bookings from My Bookings once your executive confirms a reservation.
+          </p>
+        </div>
+      </motion.div>
+    );
+  }
 
   const normalizedStatus: BookingStatus = (() => {
     const v = String(bookingStatus ?? "").toLowerCase().trim();

@@ -21,6 +21,7 @@ interface RoomDetailsModalProps {
   showStartBooking?: boolean;
   /** When showStartBooking is false, used for "Book this room" */
   onSelectRoom?: () => void;
+  selectRoomButtonLabel?: string;
 }
 
 export function RoomDetailsModal({
@@ -29,6 +30,7 @@ export function RoomDetailsModal({
   onClose,
   showStartBooking,
   onSelectRoom,
+  selectRoomButtonLabel = "Book this room",
 }: RoomDetailsModalProps) {
   const { bookings } = useBookings();
   const [availabilityDate, setAvailabilityDate] = useState(() =>
@@ -224,7 +226,7 @@ export function RoomDetailsModal({
               onClick={onSelectRoom}
               className="flex-1 rounded-full bg-[var(--primary)] py-3 font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
             >
-              Book this room
+              {selectRoomButtonLabel}
             </button>
           )}
           <button

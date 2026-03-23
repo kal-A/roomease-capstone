@@ -25,6 +25,7 @@ import { RoomRecommendation } from "@/components/RoomRecommendation";
 import type { TimeBarBooking } from "@/components/TimeBar";
 import { buildBookingRange } from "@/lib/bookingTime";
 import { DateTime } from "luxon";
+import { getAppRoleFromEmail } from "@/lib/userRole";
 
 const TOTAL_STEPS_FULL = 3;
 const TOTAL_STEPS_DIRECT = 2;
@@ -263,6 +264,8 @@ function BookPageContent() {
 
   const totalSteps = lockedRoom ? TOTAL_STEPS_DIRECT : TOTAL_STEPS_FULL;
   const { data: session } = useSession();
+  const isMember = useMemo(() => getAppRoleFromEmail(session?.user?.email) === "member", [session?.user?.email]);
+  const [confirmFlow, setConfirmFlow] = useState<"booking" | "member_request">("booking");
   const [liveRoomBookings, setLiveRoomBookings] = useState<TimeBarBooking[]>([]);
   const [blockedForDate, setBlockedForDate] = useState<
     { roomId: string; preferredDate: string; timeSlot: string; durationMinutes: number; organizerName?: string; organizerEmail?: string }[]
@@ -476,8 +479,66 @@ function BookPageContent() {
     [formData, existingBookingsWithBlocked, session?.user?.email]
   );
 
+  const handleSendRecommendation = useCallback(async () => {
+    if (!pendingBooking) return;
+    try {
+      const { startTimeIsoUtc, endTimeIsoUtc } = buildBookingRange({
+        preferredDate: pendingBooking.formData.preferredDate ?? "",
+        timeSlot: pendingBooking.formData.timeSlot ?? "",
+        durationMinutes: pendingBooking.formData.durationMinutes ?? 60,
+      });
+
+      const res = await fetch("/api/booking-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomId: String(pendingBooking.room.id),
+          eventName: String(pendingBooking.formData.eventName ?? ""),
+          organizerName: String(pendingBooking.formData.organizerName ?? ""),
+          groupSize: Number(pendingBooking.formData.groupSize ?? 0),
+          startTime: startTimeIsoUtc,
+          endTime: endTimeIsoUtc,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = String((json as { error?: string }).error ?? "Could not send recommendation.");
+        const isDirect = !!lockedRoom && String(pendingBooking.room.id) === String(lockedRoom.id);
+        if (isDirect) {
+          setDirectBookingError(msg);
+          scrollToBookingError("direct", msg);
+        } else {
+          setDoubleBookingError(msg);
+          scrollToBookingError("booking", msg);
+        }
+        setShowConfirmModal(false);
+        setPendingBooking(null);
+        return;
+      }
+
+      const reqId = String((json as { request?: { id?: string } }).request?.id ?? "").slice(0, 8);
+      setConfirmFlow("member_request");
+      setConfirmationNumber(reqId ? `REQ-${reqId}` : "REQ-SENT");
+      setSelectedBookingStatus("confirmed");
+      setSelectedRoom(pendingBooking.room);
+      setDoubleBookingError(null);
+      setDoubleBookingErrorContext(null);
+      setDirectBookingError(null);
+      setShowConfirmModal(false);
+      setPendingBooking(null);
+      setStep(3);
+    } catch (e) {
+      console.error("RECOMMENDATION API ERROR", e);
+      setDoubleBookingError("Something went wrong sending your request.");
+      setShowConfirmModal(false);
+      setPendingBooking(null);
+    }
+  }, [pendingBooking, lockedRoom]);
+
   const handleConfirmBooking = useCallback(async () => {
     if (!pendingBooking) return;
+    if (isMember) return;
     let createdBookingResponse: { booking?: { id?: string; status?: string } } | null = null;
     try {
       const { startTimeIsoUtc, endTimeIsoUtc } = buildBookingRange({
@@ -568,6 +629,7 @@ function BookPageContent() {
       return;
     }
 
+    setConfirmFlow("booking");
     const backendBookingId = createdBookingResponse?.booking?.id ? String(createdBookingResponse.booking.id) : undefined;
     const booking = addBooking({
       form: pendingBooking.formData,
@@ -619,7 +681,7 @@ function BookPageContent() {
         // ignore
       }
     }
-  }, [pendingBooking, addBooking, session?.user?.email, setBookingStatus]);
+  }, [pendingBooking, addBooking, session?.user?.email, setBookingStatus, isMember]);
 
   const handleBack = useCallback(() => {
     setDoubleBookingError(null);
@@ -637,6 +699,7 @@ function BookPageContent() {
     setDirectBookingError(null);
     setDoubleBookingErrorContext(null);
     setSelectedBookingStatus(null);
+    setConfirmFlow("booking");
     setStep(1);
   }, []);
 
@@ -799,7 +862,7 @@ function BookPageContent() {
             className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-xl sm:p-10"
           >
             <h2 className="mb-8 text-2xl font-semibold tracking-tight text-[var(--text)]">
-              {lockedRoom ? "Book This Room" : "Event Information"}
+              {lockedRoom ? (isMember ? "Request This Room" : "Book This Room") : "Event Information"}
             </h2>
             {lockedRoom && (
               <div className="mb-8 rounded-2xl border border-[var(--primary)]/40 bg-[var(--surface)] backdrop-blur-md p-5" style={{ borderRadius: "var(--radiusLg)" }}>
@@ -888,6 +951,7 @@ function BookPageContent() {
                 roomId={lockedRoom?.id}
                 existingBookings={lockedRoom ? liveRoomBookings : []}
                 viewerEmail={session?.user?.email ?? null}
+                directBookingActionLabel={isMember ? "Recommend to executive" : undefined}
               />
             </div>
             {(lockedRoom || (formData.organizerName ?? "").trim()) && (
@@ -978,6 +1042,7 @@ function BookPageContent() {
                 bookingErrorRef={bookingErrorRef}
                 errorPulseKey={bookingErrorPulse}
                 bookingConflictContext={doubleBookingErrorContext}
+                roomSelectActionLabel={isMember ? "Recommend this room" : undefined}
               />
             </div>
             )}
@@ -1000,6 +1065,7 @@ function BookPageContent() {
               onBookAnother={handleBookAnother}
               bookedByName={session?.user?.name ?? session?.user?.email ?? null}
               bookingStatus={selectedBookingStatus}
+              flow={confirmFlow}
             />
           </motion.div>
         )}
@@ -1018,8 +1084,14 @@ function BookPageContent() {
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden">
               <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => { setShowConfirmModal(false); setPendingBooking(null); }} aria-hidden />
               <div className="relative z-10 w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--surfaceElevated)] p-5 shadow-[var(--shadowXl)] max-h-[90vh] flex flex-col">
-                <h3 className="text-base font-semibold text-[var(--text)]">Confirm booking</h3>
-                <p className="mt-1.5 text-sm text-[var(--textSecondary)]">Are you sure you want to book this room?</p>
+                <h3 className="text-base font-semibold text-[var(--text)]">
+                  {isMember ? "Send to your executive" : "Confirm booking"}
+                </h3>
+                <p className="mt-1.5 text-sm text-[var(--textSecondary)]">
+                  {isMember
+                    ? "We’ll notify your club executive with these details. They can approve and complete the booking or submit it for admin approval if needed."
+                    : "Are you sure you want to book this room?"}
+                </p>
                 <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 space-y-1 text-sm">
                   <p><span className="text-[var(--textMuted)]">Room:</span> <span className="font-medium text-[var(--text)]">{pendingBooking.room.name}</span></p>
                   <p><span className="text-[var(--textMuted)]">Date:</span> <span className="text-[var(--text)]">{pendingBooking.formData.preferredDate}</span></p>
@@ -1027,7 +1099,14 @@ function BookPageContent() {
                 </div>
                 <div className="mt-4 flex gap-3">
                   <button type="button" onClick={() => { setShowConfirmModal(false); setPendingBooking(null); }} className="flex-1 rounded-xl border border-[var(--border)] py-2.5 text-sm font-medium text-[var(--textSecondary)] hover:bg-[var(--borderDivider)]">Cancel</button>
-                  <button type="button" onClick={handleConfirmBooking} className="flex-1 rounded-xl bg-[var(--primary)] py-2.5 text-sm font-semibold hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] shadow-sm hover:shadow-md" style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}>Confirm</button>
+                  <button
+                    type="button"
+                    onClick={isMember ? handleSendRecommendation : handleConfirmBooking}
+                    className="flex-1 rounded-xl bg-[var(--primary)] py-2.5 text-sm font-semibold hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)] shadow-sm hover:shadow-md"
+                    style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}
+                  >
+                    {isMember ? "Send recommendation" : "Confirm"}
+                  </button>
                 </div>
               </div>
             </div>

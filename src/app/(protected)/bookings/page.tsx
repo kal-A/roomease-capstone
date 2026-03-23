@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { getAppRoleFromEmail } from "@/lib/userRole";
 import { useBookings, type Booking, formatBookingTime } from "@/lib/bookingsStore";
 import { EditBookingModal } from "@/components/EditBookingModal";
 import { DeleteBookingModal } from "@/components/DeleteBookingModal";
@@ -44,6 +46,11 @@ type MineBookingRow = {
   groupSize?: number | null;
   createdAt?: string | null;
   eventType?: string | null;
+  admin_note?: string | null;
+  review_state?: string | null;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  requested_changes_at?: string | null;
 };
 
 function statusUi(status: Booking["status"]): { label: string; badgeClass: string; subtitle: string } {
@@ -105,6 +112,7 @@ function DayBookingsModal({
   onClose,
   onViewDetails,
   onEdit,
+  canEditBooking,
 }: {
   dateLabel: string;
   dateStr: string;
@@ -112,6 +120,7 @@ function DayBookingsModal({
   onClose: () => void;
   onViewDetails: (b: Booking) => void;
   onEdit: (b: Booking) => void;
+  canEditBooking: (b: Booking) => boolean;
 }) {
   return (
     <div
@@ -163,7 +172,8 @@ function DayBookingsModal({
                   >
                     View
                   </button>
-                  {(b.status === "pending" || b.status === "changes_requested" || b.status === "approved" || b.status === "confirmed") && (
+                  {canEditBooking(b) &&
+                    (b.status === "pending" || b.status === "changes_requested" || b.status === "approved" || b.status === "confirmed") && (
                     <button
                       type="button"
                       onClick={() => { onEdit(b); onClose(); }}
@@ -192,8 +202,8 @@ function BookingDetailsModal({
   booking: Booking;
   isOpen: boolean;
   onClose: () => void;
-  onEdit?: () => void;
-  onDelete?: () => void;
+  onEdit?: (() => void) | undefined;
+  onDelete?: (() => void) | undefined;
 }) {
   if (!isOpen) return null;
   return (
@@ -283,6 +293,18 @@ const MONTH_NAMES = [
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function MyBookingsPage() {
+  const { data: session } = useSession();
+  const appRole = session?.user?.role ?? getAppRoleFromEmail(session?.user?.email);
+  const sessionEmail = (session?.user?.email ?? "").trim().toLowerCase();
+  const canMutateBooking = useCallback(
+    (b: Booking) => {
+      if (appRole === "member") return false;
+      const booker = (b.organizerEmail ?? "").trim().toLowerCase();
+      return Boolean(sessionEmail) && booker === sessionEmail;
+    },
+    [appRole, sessionEmail]
+  );
+
   const { bookings, replaceBookings } = useBookings();
   const [details, setDetails] = useState<Booking | null>(null);
   const [editing, setEditing] = useState<Booking | null>(null);
@@ -517,7 +539,7 @@ export default function MyBookingsPage() {
           suggestion="Book a room to get started."
           action={
             <Link href="/book" className="inline-flex rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-black shadow-md transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]">
-              Book a Room
+              {appRole === "member" ? "Find a room" : "Book a Room"}
             </Link>
           }
         />
@@ -649,7 +671,8 @@ export default function MyBookingsPage() {
                 >
                   View details
                 </button>
-                {(b.status === "pending" || b.status === "changes_requested" || b.status === "approved" || b.status === "confirmed") && (
+                {canMutateBooking(b) &&
+                  (b.status === "pending" || b.status === "changes_requested" || b.status === "approved" || b.status === "confirmed") && (
                   <button
                     type="button"
                     onClick={() => setEditing(b)}
@@ -658,6 +681,7 @@ export default function MyBookingsPage() {
                     Edit
                   </button>
                 )}
+                {canMutateBooking(b) && (
                 <button
                   type="button"
                   onClick={() => setDeleting(b)}
@@ -668,6 +692,7 @@ export default function MyBookingsPage() {
                   </svg>
                   Delete
                 </button>
+                )}
               </div>
             </article>
           ))}
@@ -679,8 +704,22 @@ export default function MyBookingsPage() {
           booking={details}
           isOpen={!!details}
           onClose={() => setDetails(null)}
-          onEdit={() => { setEditing(details); setDetails(null); }}
-          onDelete={() => { setDeleting(details); setDetails(null); }}
+          onEdit={
+            canMutateBooking(details)
+              ? () => {
+                  setEditing(details);
+                  setDetails(null);
+                }
+              : undefined
+          }
+          onDelete={
+            canMutateBooking(details)
+              ? () => {
+                  setDeleting(details);
+                  setDetails(null);
+                }
+              : undefined
+          }
         />
       )}
       {editing && (
@@ -725,6 +764,7 @@ export default function MyBookingsPage() {
           onClose={() => setDayModal(null)}
           onViewDetails={setDetails}
           onEdit={setEditing}
+          canEditBooking={canMutateBooking}
         />
       )}
     </div>

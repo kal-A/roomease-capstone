@@ -18,6 +18,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { useBookings } from "@/lib/bookingsStore";
+import { getAppRoleFromEmail } from "@/lib/userRole";
 import { getBuildingTicketLabel } from "@/lib/buildings";
 import {
   getScopedBookings,
@@ -75,7 +76,14 @@ export default function AnalyticsPage() {
   const { bookings } = useBookings();
   const { data: session } = useSession();
   const email = session?.user?.email ?? null;
-  const scopedBookings = useMemo(() => getScopedBookings(bookings, "user", email), [bookings, email]);
+  const role = session?.user?.role ?? getAppRoleFromEmail(session?.user?.email);
+  const scopedBookings = useMemo(() => {
+    if (role === "member") {
+      // `/api/bookings/mine` already scopes visible rows for members (own + club exec).
+      return bookings;
+    }
+    return getScopedBookings(bookings, "user", email);
+  }, [bookings, email, role]);
 
   const { byBuildingList, byRoomList, capacityData } = useCoreAnalytics(scopedBookings);
   const peakHoursData = useMemo(() => getPeakHours(scopedBookings), [scopedBookings]);
@@ -144,7 +152,11 @@ export default function AnalyticsPage() {
             Booking Analytics
           </h1>
           <p className="mt-2 text-lg text-[var(--textSecondary)]">
-            Your own booking patterns across rooms, buildings, and organizers.
+            {role === "member"
+              ? "Club-relevant booking activity you can see — rooms, buildings, and trends from your visibility."
+              : role === "executive"
+                ? "Operational view of your bookings this term across rooms, buildings, and time."
+                : "Your own booking patterns across rooms, buildings, and organizers."}
           </p>
         </div>
       </div>
@@ -157,16 +169,22 @@ export default function AnalyticsPage() {
           }
           title="No analytics yet"
           description={
-            "Your analytics will appear once you have at least one booking."
+            role === "member"
+              ? "Analytics appear when you have visible club bookings or recommendations in progress."
+              : "Your analytics will appear once you have at least one booking."
           }
-          suggestion="Book a room to see buildings, rooms, and organizer trends."
+          suggestion={
+            role === "member"
+              ? "Explore rooms and send a recommendation to your executive."
+              : "Book a room to see buildings, rooms, and organizer trends."
+          }
           action={
             <Link
               href="/book"
               className="inline-flex rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold shadow-md transition-all duration-200 hover:bg-[var(--primaryHover)] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
               style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}
             >
-              Book a Room
+              {role === "member" ? "Find a room" : "Book a Room"}
             </Link>
           }
         />
@@ -265,7 +283,7 @@ export default function AnalyticsPage() {
                       className="rounded-full bg-[var(--primary)] px-4 py-2 text-sm font-semibold transition-all duration-200 hover:bg-[var(--primaryHover)] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
                       style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}
                     >
-                      Book this room
+                      {role === "member" ? "Recommend" : "Book this room"}
                     </Link>
                   </div>
                 </motion.li>

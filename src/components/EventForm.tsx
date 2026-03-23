@@ -36,6 +36,8 @@ interface EventFormProps {
   existingBookings?: TimeBarBooking[];
   /** Viewer email for conflict display (show truncated organizer unless viewer is organizer) */
   viewerEmail?: string | null;
+  /** Overrides direct-booking primary button label (e.g. club members send a recommendation). */
+  directBookingActionLabel?: string;
 }
 
 const defaultFormData: Partial<EventFormData> = {
@@ -58,7 +60,17 @@ const defaultFormData: Partial<EventFormData> = {
 const CUSTOM_HOURS = [0, 1, 2, 3, 4, 5, 6];
 const CUSTOM_MINUTES = [0, 15, 30, 45];
 
-export function EventForm({ data, onChange, onSubmit, buildings, directBooking, roomId, existingBookings = [], viewerEmail }: EventFormProps) {
+export function EventForm({
+  data,
+  onChange,
+  onSubmit,
+  buildings,
+  directBooking,
+  roomId,
+  existingBookings = [],
+  viewerEmail,
+  directBookingActionLabel,
+}: EventFormProps) {
   const formData = { ...defaultFormData, ...data };
   const durationMin = formData.durationMinutes ?? 60;
   const isPreset = DURATION_PRESETS.some((p) => p.value === durationMin);
@@ -462,7 +474,7 @@ export function EventForm({ data, onChange, onSubmit, buildings, directBooking, 
             boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" 
           }}
         >
-          {directBooking ? "Confirm Booking" : "Find Available Rooms"}
+          {directBooking ? directBookingActionLabel ?? "Confirm Booking" : "Find Available Rooms"}
         </button>
       </div>
     </form>

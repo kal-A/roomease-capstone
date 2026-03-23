@@ -23,6 +23,8 @@ interface RoomRecommendationProps {
   bookingErrorRef?: Ref<HTMLDivElement | null>;
   errorPulseKey?: number;
   bookingConflictContext?: BookingConflictContext | null;
+  /** Primary CTA on room cards (e.g. club members recommend instead of book). */
+  roomSelectActionLabel?: string;
 }
 
 export function RoomRecommendation({
@@ -34,6 +36,7 @@ export function RoomRecommendation({
   bookingErrorRef,
   errorPulseKey = 0,
   bookingConflictContext,
+  roomSelectActionLabel,
 }: RoomRecommendationProps) {
   const [detailsRoom, setDetailsRoom] = useState<Room | null>(null);
   const isTimeConflictError = doubleBookingError ? /booked|blocked|blocker/i.test(doubleBookingError) : false;
@@ -135,6 +138,7 @@ export function RoomRecommendation({
           onSelect={() => onSelectRoom(bestMatch)}
           onViewDetails={() => setDetailsRoom(bestMatch)}
           isBestMatch
+          selectActionLabel={roomSelectActionLabel}
         />
       </div>
 
@@ -153,6 +157,7 @@ export function RoomRecommendation({
                 furnitureNeeds={formData.furnitureNeeds ?? []}
                 onSelect={() => onSelectRoom(room)}
                 onViewDetails={() => setDetailsRoom(room)}
+                selectActionLabel={roomSelectActionLabel}
               />
             ))}
           </div>
@@ -168,6 +173,7 @@ export function RoomRecommendation({
             onSelectRoom(detailsRoom);
             setDetailsRoom(null);
           }}
+          selectRoomButtonLabel={roomSelectActionLabel}
         />
       )}
     </div>

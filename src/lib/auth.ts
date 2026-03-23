@@ -1,5 +1,6 @@
 import type { NextAuthOptions } from "next-auth";
 import AzureADProvider from "next-auth/providers/azure-ad";
+import { getAppRoleFromEmail, normalizeEmail } from "@/lib/userRole";
 
 const UW_DOMAIN = "@uwaterloo.ca";
 
@@ -34,13 +35,18 @@ export const authOptions: NextAuthOptions = {
       if (user?.name) {
         token.name = user.name;
       }
+      if (token.email) {
+        token.role = getAppRoleFromEmail(String(token.email));
+      }
       return token;
     },
     session({ session, token }) {
       if (session.user) {
         session.user.email = (token.email as string) ?? session.user.email ?? null;
         session.user.name = (token.name as string) ?? session.user.name ?? null;
-        session.user.isAdmin = (session.user.email ?? "").toLowerCase() === ADMIN_EMAIL;
+        const role = (token.role as ReturnType<typeof getAppRoleFromEmail>) ?? getAppRoleFromEmail(session.user.email);
+        session.user.role = role;
+        session.user.isAdmin = normalizeEmail(session.user.email) === normalizeEmail(ADMIN_EMAIL);
       }
       return session;
     },

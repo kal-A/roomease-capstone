@@ -27,6 +27,8 @@ interface AdminBooking {
   submittedAt: string; // ISO string
   notes: string;
   conflictSummary: string;
+  workflowTitle?: string;
+  workflowLines?: string[];
 }
 
 const MOCK_BOOKINGS: AdminBooking[] = [];
@@ -945,6 +947,23 @@ export default function AdminApprovalsPage() {
                           transition={{ duration: 0.2 }}
                           className="mt-4 border-t border-[var(--border)] pt-4 text-sm text-[var(--textSecondary)] space-y-3"
                         >
+                          {(b.workflowTitle || (b.workflowLines && b.workflowLines.length > 0)) && (
+                            <div className="rounded-xl border border-[var(--border)] bg-[var(--surfaceElevated)] p-4">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">
+                                Request source & workflow chain
+                              </p>
+                              {b.workflowTitle && (
+                                <p className="mt-2 text-sm font-medium text-[var(--text)]">{b.workflowTitle}</p>
+                              )}
+                              {b.workflowLines && b.workflowLines.length > 0 && (
+                                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[var(--textSecondary)]">
+                                  {b.workflowLines.map((line) => (
+                                    <li key={line}>{line}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          )}
                           <div className="grid gap-3 sm:grid-cols-2">
                             <div>
                               <p className="text-xs font-semibold uppercase tracking-wide text-[var(--textMuted)]">
