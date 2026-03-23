@@ -65,6 +65,9 @@ type CreateBody = {
 
 type MembershipRow = { club_name: string; user_email: string; role_in_club: string };
 
+const DEMO_MEMBER_EMAIL = "p73gupta@uwaterloo.ca";
+const DEMO_EXEC_EMAIL = "g5rai@uwaterloo.ca";
+
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
@@ -89,6 +92,7 @@ export async function POST(req: Request) {
   }
 
   const email = session.user.email.trim().toLowerCase();
+  const isDemoMember = email === DEMO_MEMBER_EMAIL;
 
   let sb;
   try {
@@ -101,46 +105,55 @@ export async function POST(req: Request) {
   let club = requestedClub;
   let execEmail = targetExecutiveEmail?.trim().toLowerCase() || "";
 
-  const memRes = await sb
-    .from("club_memberships")
-    .select("club_name, user_email, role_in_club")
-    .eq("user_email", email)
-    .eq("role_in_club", "member");
-  if (memRes.error) {
-    return NextResponse.json(
-      {
-        error:
-          "Could not read club memberships. Ensure club_memberships is configured and includes this member.",
-      },
-      { status: 500 }
-    );
+  // Demo override: Pranav can always submit without club membership association.
+  // Route every request directly to Gurman's executive inbox.
+  if (isDemoMember) {
+    club = requestedClub || organizerName?.trim() || "Member Request";
+    execEmail = DEMO_EXEC_EMAIL;
   }
-  const memberMemberships = (memRes.data ?? []) as MembershipRow[];
 
-  if (!club) {
-    if (memberMemberships.length === 1) {
-      club = memberMemberships[0].club_name;
-    } else if (memberMemberships.length > 1) {
-      return NextResponse.json(
-        { error: "Select a club before sending a recommendation (multiple club memberships found)." },
-        { status: 400 }
-      );
-    } else {
+  if (!isDemoMember) {
+    const memRes = await sb
+      .from("club_memberships")
+      .select("club_name, user_email, role_in_club")
+      .eq("user_email", email)
+      .eq("role_in_club", "member");
+    if (memRes.error) {
       return NextResponse.json(
         {
           error:
-            "No member club memberships found. Join a club or provide a club + executive explicitly.",
+            "Could not read club memberships. Ensure club_memberships is configured and includes this member.",
         },
-        { status: 400 }
+        { status: 500 }
       );
     }
-  } else {
-    const isMemberOfClub = memberMemberships.some((m) => m.club_name === club);
-    if (!isMemberOfClub) {
-      return NextResponse.json(
-        { error: `You are not registered as a member of "${club}".` },
-        { status: 403 }
-      );
+    const memberMemberships = (memRes.data ?? []) as MembershipRow[];
+
+    if (!club) {
+      if (memberMemberships.length === 1) {
+        club = memberMemberships[0].club_name;
+      } else if (memberMemberships.length > 1) {
+        return NextResponse.json(
+          { error: "Select a club before sending a recommendation (multiple club memberships found)." },
+          { status: 400 }
+        );
+      } else {
+        return NextResponse.json(
+          {
+            error:
+              "No member club memberships found. Join a club or provide a club + executive explicitly.",
+          },
+          { status: 400 }
+        );
+      }
+    } else {
+      const isMemberOfClub = memberMemberships.some((m) => m.club_name === club);
+      if (!isMemberOfClub) {
+        return NextResponse.json(
+          { error: `You are not registered as a member of "${club}".` },
+          { status: 403 }
+        );
+      }
     }
   }
 

@@ -50,7 +50,7 @@ export function ConfirmationPage({
             </div>
             <h1 className="mt-5 text-2xl font-bold tracking-tight text-[var(--text)]">Recommendation sent</h1>
             <p className="mt-1 text-sm text-[var(--textSecondary)] max-w-md">
-              Your club executive will review the details. If they approve, the room will be booked or submitted for admin approval when required.
+              Your request has been sent for review. If approved, it will be booked directly or routed to admin approval when required.
             </p>
           </div>
           <dl className="mt-7 grid gap-4 sm:grid-cols-2">
