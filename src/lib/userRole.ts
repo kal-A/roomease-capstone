@@ -7,7 +7,7 @@ export type AppRole = "admin" | "executive" | "member";
 
 const ADMIN_EMAIL = "fvalli@uwaterloo.ca";
 const EXEC_EMAIL = "g5rai@uwaterloo.ca";
-const MEMBER_EMAIL = "p37gupta@uwaterloo.ca";
+const MEMBER_EMAIL = "p73gupta@uwaterloo.ca";
 
 const EMAIL_ROLE: Record<string, AppRole> = {
   [ADMIN_EMAIL]: "admin",
@@ -20,13 +20,12 @@ export function normalizeEmail(email: string | null | undefined): string {
 }
 
 /**
- * Map known demo accounts; other @uwaterloo.ca users default to executive so
- * existing booking flows keep working outside the three demo personas.
+ * Map known demo accounts exactly.
+ * Everyone else defaults to member for safer permissions.
  */
 export function getAppRoleFromEmail(email: string | null | undefined): AppRole {
   const key = normalizeEmail(email);
   if (EMAIL_ROLE[key]) return EMAIL_ROLE[key];
-  if (key.endsWith("@uwaterloo.ca")) return "executive";
   return "member";
 }
 

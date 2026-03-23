@@ -36,7 +36,7 @@ const ROOM_IDS = ["AL-209", "AL-210", "CPH-1346", "MC-2035"];
 const DEMO_USERS = [
   { email: "fvalli@uwaterloo.ca", name: "Farhan Valli", isAdmin: true },
   { email: "g5rai@uwaterloo.ca", name: "Gurman Rai", isAdmin: false },
-  { email: "p37gupta@uwaterloo.ca", name: "Pranav Gupta", isAdmin: false },
+  { email: "p73gupta@uwaterloo.ca", name: "Pranav Gupta", isAdmin: false },
   { email: "k4ahsan@uwaterloo.ca", name: "Kamal Ahsan", isAdmin: false },
   { email: "sjeyapal@uwaterloo.ca", name: "Jey Jeyapalan", isAdmin: false },
 ];
