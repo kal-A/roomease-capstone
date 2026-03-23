@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Booking, BookingStatus } from "@/lib/bookingsStore";
 import { useBookings } from "@/lib/bookingsStore";
 import { timeRangesOverlap, timeToMinutes } from "@/types/booking";
@@ -159,9 +160,9 @@ export function EditBookingModal({ booking, isOpen, onClose, onSaveSuccess, onDe
     ]
   );
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[120] flex items-center justify-center p-4"
       role="dialog"
@@ -339,6 +340,7 @@ export function EditBookingModal({ booking, isOpen, onClose, onSaveSuccess, onDe
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
