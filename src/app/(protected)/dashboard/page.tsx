@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { DateTime } from "luxon";
 import { useBookings } from "@/lib/bookingsStore";
-import { DEMO_CLUB_NAME, getAppRoleFromEmail } from "@/lib/userRole";
+import { getAppRoleFromEmail } from "@/lib/userRole";
 import { getTopRooms, getTopBuildings, getTrendsByClub } from "@/lib/bookingAnalytics";
 import { RoleBadge } from "@/components/RoleBadge";
 import { EmptyState } from "@/components/EmptyState";
@@ -125,7 +125,9 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-lg font-semibold text-[var(--text)]">Club summary</h2>
               <p className="text-sm text-[var(--textSecondary)] mt-1">
-                Demo snapshot for {execClubs[0]?.club_name ?? DEMO_CLUB_NAME}
+                {execClubs[0]?.club_name
+                  ? `Demo snapshot for ${execClubs[0].club_name}`
+                  : "No executive club selected yet"}
               </p>
             </div>
             <Link

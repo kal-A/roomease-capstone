@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { getAppRoleFromEmail } from "@/lib/userRole";
-import { getDemoMembershipsForEmail } from "@/lib/demoClubData";
 
 type MembershipRow = { club_name: string; user_email: string; role_in_club: string };
 
@@ -55,11 +54,11 @@ export async function GET() {
   const memRes = await sb.from("club_memberships").select("club_name,user_email,role_in_club").eq("user_email", email);
 
   if (memRes.error) {
-    console.warn("club_memberships query failed; using demo fallback", memRes.error.message);
-    memberships = getDemoMembershipsForEmail(email) as MembershipRow[];
+    console.warn("club_memberships query failed", memRes.error.message);
+    memberships = [];
   } else {
     const rows = (memRes.data ?? []) as MembershipRow[];
-    memberships = rows.length > 0 ? rows : getDemoMembershipsForEmail(email);
+    memberships = rows;
   }
 
   const memberClubs = memberships

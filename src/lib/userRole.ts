@@ -9,9 +9,6 @@ const ADMIN_EMAIL = "fvalli@uwaterloo.ca";
 const EXEC_EMAIL = "g5rai@uwaterloo.ca";
 const MEMBER_EMAIL = "p37gupta@uwaterloo.ca";
 
-/** Canonical demo club used for member → executive workflow */
-export const DEMO_CLUB_NAME = "Muslim Students' Association (MSA)";
-
 const EMAIL_ROLE: Record<string, AppRole> = {
   [ADMIN_EMAIL]: "admin",
   [EXEC_EMAIL]: "executive",

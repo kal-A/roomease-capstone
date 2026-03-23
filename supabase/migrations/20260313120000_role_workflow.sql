@@ -41,10 +41,3 @@ ALTER TABLE public.bookings ADD COLUMN IF NOT EXISTS workflow_source text;
 ALTER TABLE public.bookings ADD COLUMN IF NOT EXISTS originated_by_email text;
 ALTER TABLE public.bookings ADD COLUMN IF NOT EXISTS originated_by_role text;
 ALTER TABLE public.bookings ADD COLUMN IF NOT EXISTS executive_email text;
-
--- Demo seed (idempotent)
-INSERT INTO public.club_memberships (club_name, user_email, role_in_club)
-VALUES
-  ('Muslim Students'' Association (MSA)', 'p37gupta@uwaterloo.ca', 'member'),
-  ('Muslim Students'' Association (MSA)', 'g5rai@uwaterloo.ca', 'executive')
-ON CONFLICT (club_name, user_email) DO NOTHING;
