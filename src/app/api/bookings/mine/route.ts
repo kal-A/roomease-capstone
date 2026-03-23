@@ -6,7 +6,12 @@ import { getAppRoleFromEmail } from "@/lib/userRole";
 
 type MembershipRow = { club_name: string; user_email: string; role_in_club: string };
 
-type BookingRow = { booker_email?: string | null; club_name?: string | null };
+type BookingRow = {
+  booker_email?: string | null;
+  club_name?: string | null;
+  workflow_source?: string | null;
+  originated_by_email?: string | null;
+};
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -115,6 +120,13 @@ export async function GET() {
   const filtered = rows.filter((row) => {
     const be = String(row.booker_email ?? "").toLowerCase();
     if (be === email) return true;
+
+    // Show approved bookings that originated from this member's recommendation,
+    // even when demo setup has no persisted club membership rows.
+    const originatedBy = String(row.originated_by_email ?? "").toLowerCase();
+    const workflowSource = String(row.workflow_source ?? "").toLowerCase();
+    if (originatedBy === email && workflowSource === "member_recommendation") return true;
+
     const cn = String(row.club_name ?? "");
     return execEmails.has(be) && memberClubs.includes(cn);
   });
