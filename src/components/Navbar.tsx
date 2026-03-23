@@ -139,10 +139,11 @@ export function Navbar() {
         <nav className="mx-auto flex h-14 max-w-[1200px] items-center justify-between gap-4 px-6 sm:px-8 lg:px-10">
           <div className="flex min-w-0 flex-1 items-center gap-4">
             <ThemeToggle />
-            <Link
+            <a
               href="/"
+              onClick={handleHomeClick}
               className="flex shrink-0 items-center gap-2 transition-opacity hover:opacity-90"
-              aria-label="RoomEase"
+              aria-label="RoomEase — Home"
             >
               <span
                 className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--gold)]"
@@ -163,7 +164,7 @@ export function Navbar() {
                 </svg>
               </span>
               <span className="text-xl font-semibold tracking-tight text-[var(--foreground)]">RoomEase</span>
-            </Link>
+            </a>
           </div>
           {/* no links during auth stage */}
         </nav>
@@ -176,10 +177,11 @@ export function Navbar() {
       <nav className="mx-auto flex h-14 max-w-[1200px] items-center justify-between gap-4 px-6 sm:px-8 lg:px-10">
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <ThemeToggle />
-          <Link
+          <a
             href="/"
+            onClick={handleHomeClick}
             className="flex shrink-0 items-center gap-2 transition-opacity hover:opacity-90"
-            onClick={(e) => { if (isHome) { e.preventDefault(); handleHomeClick(e); } }}
+            aria-label="RoomEase — Home"
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--gold)]" style={{ color: "var(--primaryText)" }} aria-hidden>
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
@@ -188,19 +190,9 @@ export function Navbar() {
               </svg>
             </span>
             <span className="text-xl font-semibold tracking-tight text-[var(--foreground)]">RoomEase</span>
-          </Link>
+          </a>
         </div>
         <div className="flex items-center gap-6 sm:gap-8">
-          <a
-            href="/"
-            onClick={handleHomeClick}
-            className={`text-sm font-medium transition-colors duration-200 ${
-              isHome ? "text-[var(--foreground)]" : "text-[var(--foreground-secondary)] hover:text-[var(--foreground)]"
-            }`}
-          >
-            Home
-            {isHome && <span className="block h-[1px] w-full bg-[var(--gold)] mt-1" />}
-          </a>
           {status === "loading" ? (
             <span className="h-9 w-20 shrink-0 rounded-full bg-[var(--border)]/40" aria-hidden />
           ) : session ? (
