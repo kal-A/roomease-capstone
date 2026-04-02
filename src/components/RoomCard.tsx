@@ -25,6 +25,7 @@ interface RoomCardProps {
   onSelect: () => void;
   onViewDetails: () => void;
   isBestMatch?: boolean;
+  selectActionLabel?: string;
 }
 
 export function RoomCard({
@@ -37,6 +38,7 @@ export function RoomCard({
   onSelect,
   onViewDetails,
   isBestMatch = false,
+  selectActionLabel = "Book this room",
 }: RoomCardProps) {
   const fitsGroup = room.capacity >= groupSize;
   const hasStreaming = roomIsStreamingRecordingCapable(room);
@@ -156,7 +158,7 @@ export function RoomCard({
           className="flex-1 rounded-xl bg-[var(--primary)] px-4 py-3 font-semibold shadow-md transition hover:bg-[var(--primaryHover)] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
           style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}
         >
-          Book this room
+          {selectActionLabel}
         </button>
         <button
           type="button"

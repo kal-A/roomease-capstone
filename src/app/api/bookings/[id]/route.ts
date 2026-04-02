@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { getAppRoleFromEmail } from "@/lib/userRole";
 
 type PatchBookingBody = {
   roomId: string;
@@ -18,6 +19,11 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const role = session.user.role ?? getAppRoleFromEmail(session.user.email);
+  if (role === "member" && !session.user.isAdmin) {
+    return NextResponse.json({ error: "Club members can’t delete bookings." }, { status: 403 });
   }
 
   const actingEmail = session.user.email.toLowerCase();
@@ -72,6 +78,11 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const role = session.user.role ?? getAppRoleFromEmail(session.user.email);
+  if (role === "member" && !session.user.isAdmin) {
+    return NextResponse.json({ error: "Club members can’t edit bookings." }, { status: 403 });
   }
 
   const actingEmail = session.user.email.toLowerCase();

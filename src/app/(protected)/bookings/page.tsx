@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { getAppRoleFromEmail } from "@/lib/userRole";
 import { useBookings, type Booking, formatBookingTime } from "@/lib/bookingsStore";
 import { EditBookingModal } from "@/components/EditBookingModal";
 import { DeleteBookingModal } from "@/components/DeleteBookingModal";
@@ -20,6 +22,7 @@ import {
 } from "@/types/booking";
 
 type ViewMode = "list" | "calendar";
+type SortOption = "upcoming_first" | "upcoming_last" | "event_az" | "event_za";
 
 type MineBookingRow = {
   id: string | number;
@@ -44,6 +47,11 @@ type MineBookingRow = {
   groupSize?: number | null;
   createdAt?: string | null;
   eventType?: string | null;
+  admin_note?: string | null;
+  review_state?: string | null;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  requested_changes_at?: string | null;
 };
 
 function statusUi(status: Booking["status"]): { label: string; badgeClass: string; subtitle: string } {
@@ -105,6 +113,7 @@ function DayBookingsModal({
   onClose,
   onViewDetails,
   onEdit,
+  canEditBooking,
 }: {
   dateLabel: string;
   dateStr: string;
@@ -112,7 +121,20 @@ function DayBookingsModal({
   onClose: () => void;
   onViewDetails: (b: Booking) => void;
   onEdit: (b: Booking) => void;
+  canEditBooking: (b: Booking) => boolean;
 }) {
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleEscape);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -163,7 +185,8 @@ function DayBookingsModal({
                   >
                     View
                   </button>
-                  {(b.status === "pending" || b.status === "changes_requested" || b.status === "approved" || b.status === "confirmed") && (
+                  {canEditBooking(b) &&
+                    (b.status === "pending" || b.status === "changes_requested" || b.status === "approved" || b.status === "confirmed") && (
                     <button
                       type="button"
                       onClick={() => { onEdit(b); onClose(); }}
@@ -192,9 +215,22 @@ function BookingDetailsModal({
   booking: Booking;
   isOpen: boolean;
   onClose: () => void;
-  onEdit?: () => void;
-  onDelete?: () => void;
+  onEdit?: (() => void) | undefined;
+  onDelete?: (() => void) | undefined;
 }) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleEscape);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "";
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden">
@@ -283,11 +319,24 @@ const MONTH_NAMES = [
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function MyBookingsPage() {
+  const { data: session } = useSession();
+  const appRole = session?.user?.role ?? getAppRoleFromEmail(session?.user?.email);
+  const sessionEmail = (session?.user?.email ?? "").trim().toLowerCase();
+  const canMutateBooking = useCallback(
+    (b: Booking) => {
+      if (appRole === "member") return false;
+      const booker = (b.organizerEmail ?? "").trim().toLowerCase();
+      return Boolean(sessionEmail) && booker === sessionEmail;
+    },
+    [appRole, sessionEmail]
+  );
+
   const { bookings, replaceBookings } = useBookings();
   const [details, setDetails] = useState<Booking | null>(null);
   const [editing, setEditing] = useState<Booking | null>(null);
   const [deleting, setDeleting] = useState<Booking | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [sort, setSort] = useState<SortOption>("upcoming_first");
   const [calendarMonth, setCalendarMonth] = useState(() => new Date().getMonth() + 1);
   const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear());
   const [dayModal, setDayModal] = useState<{ dateStr: string; dateLabel: string } | null>(null);
@@ -417,7 +466,23 @@ export default function MyBookingsPage() {
   }, [refetchMine]);
 
   const hasBookings = !mineLoading && bookings.length > 0;
-  const list = useMemo(() => bookings, [bookings]);
+  const list = useMemo(() => {
+    const toStartMs = (b: Booking) => {
+      const date = String(b.preferredDate ?? "");
+      const time = String(b.timeSlot ?? "00:00");
+      const t = Date.parse(`${date}T${time}:00`);
+      return Number.isFinite(t) ? t : 0;
+    };
+
+    const arr = [...bookings];
+    arr.sort((a, b) => {
+      if (sort === "event_az") return a.eventName.localeCompare(b.eventName);
+      if (sort === "event_za") return b.eventName.localeCompare(a.eventName);
+      if (sort === "upcoming_last") return toStartMs(b) - toStartMs(a);
+      return toStartMs(a) - toStartMs(b);
+    });
+    return arr;
+  }, [bookings, sort]);
 
   const monthGrid = useMemo(
     () => getMonthGrid(calendarYear, calendarMonth),
@@ -425,13 +490,13 @@ export default function MyBookingsPage() {
   );
   const bookingsByDate = useMemo(() => {
     const map: Record<string, Booking[]> = {};
-    for (const b of bookings) {
+    for (const b of list) {
       const d = b.preferredDate;
       if (!map[d]) map[d] = [];
       map[d].push(b);
     }
     return map;
-  }, [bookings]);
+  }, [list]);
   const dayModalBookings = dayModal ? (bookingsByDate[dayModal.dateStr] ?? []) : [];
 
   const prevMonth = () => {
@@ -468,29 +533,44 @@ export default function MyBookingsPage() {
           <p className="mt-2 text-lg text-[var(--textSecondary)]">Your scheduled room reservations.</p>
         </div>
         {hasBookings && (
-          <div className="flex rounded-full border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-1">
-            <button
-              type="button"
-              onClick={() => setViewMode("list")}
-              className={`rounded-full px-5 py-2 text-sm font-medium transition-all duration-200 ${
-                viewMode === "list"
-                  ? "bg-[var(--primary)] text-black shadow-lg"
-                  : "text-[var(--textSecondary)] hover:text-[var(--text)]"
-              }`}
-            >
-              List
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("calendar")}
-              className={`rounded-full px-5 py-2 text-sm font-medium transition-all duration-200 ${
-                viewMode === "calendar"
-                  ? "bg-[var(--primary)] text-black shadow-lg"
-                  : "text-[var(--textSecondary)] hover:text-[var(--text)]"
-              }`}
-            >
-              Calendar
-            </button>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <label className="flex items-center gap-2 text-sm text-[var(--textSecondary)]">
+              <span>Sort</span>
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortOption)}
+                className="rounded-xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md px-4 py-2 text-sm text-[var(--text)] transition-all duration-200 focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
+              >
+                <option value="upcoming_first">Upcoming first</option>
+                <option value="upcoming_last">Latest first</option>
+                <option value="event_az">Event: A to Z</option>
+                <option value="event_za">Event: Z to A</option>
+              </select>
+            </label>
+            <div className="flex rounded-full border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-1">
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                className={`rounded-full px-5 py-2 text-sm font-medium transition-all duration-200 ${
+                  viewMode === "list"
+                    ? "bg-[var(--primary)] text-black shadow-lg"
+                    : "text-[var(--textSecondary)] hover:text-[var(--text)]"
+                }`}
+              >
+                List
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("calendar")}
+                className={`rounded-full px-5 py-2 text-sm font-medium transition-all duration-200 ${
+                  viewMode === "calendar"
+                    ? "bg-[var(--primary)] text-black shadow-lg"
+                    : "text-[var(--textSecondary)] hover:text-[var(--text)]"
+                }`}
+              >
+                Calendar
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -517,7 +597,7 @@ export default function MyBookingsPage() {
           suggestion="Book a room to get started."
           action={
             <Link href="/book" className="inline-flex rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-black shadow-md transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]">
-              Book a Room
+              {appRole === "member" ? "Find a room" : "Book a Room"}
             </Link>
           }
         />
@@ -649,7 +729,8 @@ export default function MyBookingsPage() {
                 >
                   View details
                 </button>
-                {(b.status === "pending" || b.status === "changes_requested" || b.status === "approved" || b.status === "confirmed") && (
+                {canMutateBooking(b) &&
+                  (b.status === "pending" || b.status === "changes_requested" || b.status === "approved" || b.status === "confirmed") && (
                   <button
                     type="button"
                     onClick={() => setEditing(b)}
@@ -658,6 +739,7 @@ export default function MyBookingsPage() {
                     Edit
                   </button>
                 )}
+                {canMutateBooking(b) && (
                 <button
                   type="button"
                   onClick={() => setDeleting(b)}
@@ -668,6 +750,7 @@ export default function MyBookingsPage() {
                   </svg>
                   Delete
                 </button>
+                )}
               </div>
             </article>
           ))}
@@ -679,8 +762,22 @@ export default function MyBookingsPage() {
           booking={details}
           isOpen={!!details}
           onClose={() => setDetails(null)}
-          onEdit={() => { setEditing(details); setDetails(null); }}
-          onDelete={() => { setDeleting(details); setDetails(null); }}
+          onEdit={
+            canMutateBooking(details)
+              ? () => {
+                  setEditing(details);
+                  setDetails(null);
+                }
+              : undefined
+          }
+          onDelete={
+            canMutateBooking(details)
+              ? () => {
+                  setDeleting(details);
+                  setDetails(null);
+                }
+              : undefined
+          }
         />
       )}
       {editing && (
@@ -725,6 +822,7 @@ export default function MyBookingsPage() {
           onClose={() => setDayModal(null)}
           onViewDetails={setDetails}
           onEdit={setEditing}
+          canEditBooking={canMutateBooking}
         />
       )}
     </div>

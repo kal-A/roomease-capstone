@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface BuildingModalProps {
   isOpen: boolean;
@@ -18,6 +19,12 @@ export function BuildingModal({
   buildings,
 }: BuildingModalProps) {
   const [search, setSearch] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   const handleEscape = useCallback(
     (e: KeyboardEvent) => {
@@ -44,11 +51,11 @@ export function BuildingModal({
     );
   }, [buildings, search]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden"
+      className="fixed inset-0 z-[130] flex items-center justify-center p-4 overflow-hidden"
       role="dialog"
       aria-modal="true"
       aria-labelledby="building-modal-title"
@@ -112,5 +119,6 @@ export function BuildingModal({
         </div>
       </div>
     </div>
+    , document.body
   );
 }

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { getAppRoleFromEmail } from "@/lib/userRole";
 import { motion, AnimatePresence } from "framer-motion";
 
 const NAVBAR_OFFSET = 72; // sticky header height for scroll offset
@@ -14,6 +15,7 @@ function HomePageContent() {
   const hasScrolledRef = useRef(false);
   const lastScrollYRef = useRef(0);
   const { data: session } = useSession();
+  const isMemberUser = getAppRoleFromEmail(session?.user?.email) === "member";
   const [activeSection, setActiveSection] = useState<"learn-more" | "why" | "about" | null>(null);
   const [showSectionNav, setShowSectionNav] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -174,7 +176,7 @@ function HomePageContent() {
               className="w-full rounded-full bg-[var(--primary)] px-8 py-4 text-center text-base font-semibold shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] hover:-translate-y-0.5 hover:shadow-xl sm:w-auto sm:min-w-[180px]"
               style={{ color: "var(--primaryText)", boxShadow: "0 0 0 1px rgba(0,0,0,0.05), 0 2px 8px var(--primaryGlow)" }}
             >
-              Start Booking
+              {isMemberUser ? "Find a room" : "Start Booking"}
             </Link>
             <Link
               href="/rooms"

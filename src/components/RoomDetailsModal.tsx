@@ -21,6 +21,8 @@ interface RoomDetailsModalProps {
   showStartBooking?: boolean;
   /** When showStartBooking is false, used for "Book this room" */
   onSelectRoom?: () => void;
+  selectRoomButtonLabel?: string;
+  showRating?: boolean;
 }
 
 export function RoomDetailsModal({
@@ -29,6 +31,8 @@ export function RoomDetailsModal({
   onClose,
   showStartBooking,
   onSelectRoom,
+  selectRoomButtonLabel = "Book this room",
+  showRating = true,
 }: RoomDetailsModalProps) {
   const { bookings } = useBookings();
   const [availabilityDate, setAvailabilityDate] = useState(() =>
@@ -124,10 +128,12 @@ export function RoomDetailsModal({
             <AVAndFurnitureSections room={room} animatedBadges={false} />
           </div>
 
-          <div>
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--textMuted)]">Rating</h3>
-            <RoomRating roomId={room.id} showRateForm />
-          </div>
+          {showRating && (
+            <div>
+              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--textMuted)]">Rating</h3>
+              <RoomRating roomId={room.id} showRateForm />
+            </div>
+          )}
 
           <div>
             <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--textMuted)]">Room ownership</h3>
@@ -224,7 +230,7 @@ export function RoomDetailsModal({
               onClick={onSelectRoom}
               className="flex-1 rounded-full bg-[var(--primary)] py-3 font-semibold text-black shadow-lg transition-all duration-200 hover:bg-[var(--primaryHover)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
             >
-              Book this room
+              {selectRoomButtonLabel}
             </button>
           )}
           <button

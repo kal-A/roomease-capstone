@@ -46,13 +46,28 @@ export async function GET() {
   const sb = supabaseServer();
   const roomsById = new Map(ROOMS.map((r) => [String(r.id), r]));
 
-  const { data, error } = await sb
+  let query = sb
     .from("bookings")
     .select(
-      "id,room_id,start_time,end_time,booker_name,booker_email,event_name,organizer_name,group_size,status,created_at,admin_note,review_state,reviewed_at,reviewed_by,requested_changes_at"
+      "id,room_id,start_time,end_time,booker_name,booker_email,event_name,organizer_name,group_size,status,created_at,admin_note,review_state,reviewed_at,reviewed_by,requested_changes_at,club_name,workflow_source,originated_by_email,originated_by_role,executive_email"
     )
     .order("start_time", { ascending: false })
     .limit(200);
+
+  let { data, error } = await query;
+  let bookingRowsRaw: unknown[] | null = data as unknown[] | null;
+
+  if (error && /column|does not exist/i.test(String(error.message ?? ""))) {
+    const fb = await sb
+      .from("bookings")
+      .select(
+        "id,room_id,start_time,end_time,booker_name,booker_email,event_name,organizer_name,group_size,status,created_at,admin_note,review_state,reviewed_at,reviewed_by,requested_changes_at"
+      )
+      .order("start_time", { ascending: false })
+      .limit(200);
+    bookingRowsRaw = fb.data as unknown[] | null;
+    error = fb.error;
+  }
 
   if (error) {
     console.error("SUPABASE QUERY ERROR (admin bookings)", error);
@@ -76,10 +91,44 @@ export async function GET() {
     reviewed_at?: string | null;
     reviewed_by?: string | null;
     requested_changes_at?: string | null;
+    club_name?: string | null;
+    workflow_source?: string | null;
+    originated_by_email?: string | null;
+    originated_by_role?: string | null;
+    executive_email?: string | null;
   };
 
-  const bookingRows = (data ?? []) as BookingRow[];
+  const bookingRows = (bookingRowsRaw ?? []) as BookingRow[];
   const BLOCKED_STATUSES = new Set(["pending", "approved", "confirmed", "changes_requested"]);
+
+  function workflowForRow(b: BookingRow): { workflowTitle: string; workflowLines: string[] } {
+    const wf = String(b.workflow_source ?? "").toLowerCase().trim();
+    const orig = String(b.originated_by_email ?? "").trim();
+    const origRole = String(b.originated_by_role ?? "").trim();
+    const exec = String(b.executive_email ?? "").trim();
+    const club = String(b.club_name ?? "").trim();
+    const booker = String(b.booker_email ?? "").trim();
+
+    if (wf === "member_recommendation" && orig) {
+      const lines = [
+        `Member recommendation from ${orig}${origRole ? ` (${origRole})` : ""}`,
+        exec ? `Reviewed and booked by executive: ${exec}` : `Booked by: ${booker}`,
+        club ? `Club context: ${club}` : "",
+      ].filter(Boolean);
+      return { workflowTitle: "Member → executive → admin (if required)", workflowLines: lines };
+    }
+    if (wf === "executive_direct") {
+      const lines = [
+        `Submitted directly by executive${exec ? `: ${exec}` : booker ? `: ${booker}` : ""}`,
+        club ? `Club: ${club}` : "",
+      ].filter(Boolean);
+      return { workflowTitle: "Direct executive booking", workflowLines: lines.length ? lines : ["Executive-led booking flow."] };
+    }
+    return {
+      workflowTitle: "Standard workflow",
+      workflowLines: [`Booker: ${booker || "—"}`, club ? `Club: ${club}` : ""].filter(Boolean),
+    };
+  }
 
   const precomputed = bookingRows.map((r) => {
     const roomIdKey = String(r.room_id ?? "");
@@ -128,6 +177,8 @@ export async function GET() {
       return o.startMs < bEndMs && o.endMs > bStartMs;
     }).length;
 
+    const wf = workflowForRow(b);
+
     return {
       id: String(b.id ?? `${b.event_name}-${roomIdKey}-${submittedAtIso}`),
       status,
@@ -147,6 +198,8 @@ export async function GET() {
       submittedAt: submittedAtIso,
       notes: String(b.admin_note ?? ""),
       conflictSummary: conflictCount > 0 ? `Conflicts with ${conflictCount} booking(s).` : "No conflicts detected.",
+      workflowTitle: wf.workflowTitle,
+      workflowLines: wf.workflowLines,
     };
   });
 
