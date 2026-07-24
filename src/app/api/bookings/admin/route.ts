@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions, ADMIN_EMAIL } from "@/lib/auth";
+import { authOptions, isAdminEmail } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { ROOMS } from "@/data/rooms";
 import { getBuildingDisplayName } from "@/lib/buildings";
@@ -37,7 +37,7 @@ function formatDurationLabel(start: DateTime, end: DateTime): string {
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  const isAdmin = (session?.user?.email ?? "").toLowerCase() === ADMIN_EMAIL;
+  const isAdmin = isAdminEmail(session?.user?.email);
   if (!isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

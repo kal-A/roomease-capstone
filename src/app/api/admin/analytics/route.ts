@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions, ADMIN_EMAIL } from "@/lib/auth";
+import { authOptions, isAdminEmail } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { ROOMS } from "@/data/rooms";
 import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
@@ -49,7 +49,7 @@ function toPreferredDateAndHour(startTimeIso: string): { preferredDate: string; 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   const email = session?.user?.email ?? "";
-  const isAdmin = Boolean(session?.user?.isAdmin) || String(email).toLowerCase() === ADMIN_EMAIL;
+  const isAdmin = Boolean(session?.user?.isAdmin) || isAdminEmail(email);
   if (!session?.user?.email || !isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

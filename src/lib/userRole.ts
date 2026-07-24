@@ -6,11 +6,13 @@
 export type AppRole = "admin" | "executive" | "member";
 
 const ADMIN_EMAIL = "fvalli@uwaterloo.ca";
+const ADMIN_EMAIL_2 = "k4ahsan@uwaterloo.ca";
 const EXEC_EMAIL = "g5rai@uwaterloo.ca";
 const MEMBER_EMAIL = "p73gupta@uwaterloo.ca";
 
 const EMAIL_ROLE: Record<string, AppRole> = {
   [ADMIN_EMAIL]: "admin",
+  [ADMIN_EMAIL_2]: "admin",
   [EXEC_EMAIL]: "executive",
   [MEMBER_EMAIL]: "member",
 };

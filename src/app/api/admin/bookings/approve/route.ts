@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions, ADMIN_EMAIL } from "@/lib/auth";
+import { authOptions, isAdminEmail } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 
 type ApproveBody = {
@@ -11,7 +11,7 @@ type ApproveBody = {
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   const email = session?.user?.email ?? null;
-  const isAdmin = Boolean(session?.user?.isAdmin) || (email ?? "").toLowerCase() === ADMIN_EMAIL;
+  const isAdmin = Boolean(session?.user?.isAdmin) || isAdminEmail(email);
 
   if (!email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

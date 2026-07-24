@@ -5,6 +5,12 @@ import { getAppRoleFromEmail, normalizeEmail } from "@/lib/userRole";
 const UW_DOMAIN = "@uwaterloo.ca";
 
 export const ADMIN_EMAIL = "fvalli@uwaterloo.ca";
+export const ADMIN_EMAILS = [ADMIN_EMAIL, "k4ahsan@uwaterloo.ca"];
+
+export function isAdminEmail(email: string | null | undefined): boolean {
+  const normalized = normalizeEmail(email);
+  return ADMIN_EMAILS.some((adminEmail) => normalizeEmail(adminEmail) === normalized);
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -46,7 +52,7 @@ export const authOptions: NextAuthOptions = {
         session.user.name = (token.name as string) ?? session.user.name ?? null;
         const role = (token.role as ReturnType<typeof getAppRoleFromEmail>) ?? getAppRoleFromEmail(session.user.email);
         session.user.role = role;
-        session.user.isAdmin = normalizeEmail(session.user.email) === normalizeEmail(ADMIN_EMAIL);
+        session.user.isAdmin = isAdminEmail(session.user.email);
       }
       return session;
     },

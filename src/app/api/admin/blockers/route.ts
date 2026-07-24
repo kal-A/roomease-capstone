@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions, ADMIN_EMAIL } from "@/lib/auth";
+import { authOptions, isAdminEmail } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { DateTime } from "luxon";
 
@@ -18,7 +18,7 @@ type AdminBlocker = {
 export async function GET() {
   const session = await getServerSession(authOptions);
   const email = session?.user?.email ?? null;
-  const isAdmin = Boolean(session?.user?.isAdmin) || (email ?? "").toLowerCase() === ADMIN_EMAIL;
+  const isAdmin = Boolean(session?.user?.isAdmin) || isAdminEmail(email);
   if (!email || !isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
