@@ -1,10 +1,10 @@
 # RoomEase engineering hardening plan
 
-Last updated: 2026-09-26
+Last updated: 2026-09-27
 
 Baseline branch: `hardening/phase-0-audit`
 
-Current hardening branch: `hardening/phase-1-reproducibility`
+Current hardening branch: `hardening/phase-2-quality-gates`
 
 Audited commit: `03dfa13f6420d2dfb94da6babf7f6034e0770e04`
 
@@ -20,7 +20,7 @@ Phase 0 is an evidence-gathering phase. Application behavior must remain unchang
 | --- | --- | --- |
 | 0. Establish baseline | Complete | This document; baseline commands recorded below |
 | 1. Reproducible dependencies/configuration | Complete | Clean install, production audit, typecheck, build, and safety checks recorded below |
-| 2. Code-quality gates | Not started | — |
+| 2. Code-quality gates | Complete | Zero-warning lint, typecheck, and production build recorded below |
 | 3. Testable domain layer | Not started | — |
 | 4. Database integrity/reproducibility | Not started | — |
 | 5. Automated testing | Not started | — |
@@ -410,3 +410,50 @@ Phase 1 was completed on `hardening/phase-1-reproducibility` without database, r
 ### Rollback
 
 Each Phase 1 concern is isolated in the commits above and can be reverted in reverse order. No database migration or remote configuration mutation occurred. If the identity-config commit is reverted, do not deploy the former hard-coded identity behavior; restore access through reviewed server configuration instead.
+
+## Phase 2 completion record
+
+Phase 2 was completed on `hardening/phase-2-quality-gates`. It established a green, zero-warning lint gate without changing the database schema, authorization model, booking workflow, recommendation policy, or page layout.
+
+### Atomic commits
+
+- `e033b2d` — `quality: clean server and script lint`
+- `2312cea` — `quality: fix booking flow hooks and types`
+- `f4d428b` — `quality: clean page and client-store lint`
+- `01209e6` — `quality: fix component hook and lint issues`
+- Final verification/documentation commit: recorded in Git history for this section.
+
+### Implemented changes
+
+- Reduced the Phase 1 lint baseline from 73 errors and 37 warnings to zero errors and zero warnings.
+- Replaced explicit `any` usage in the affected booking, API, store, component, and sample-page paths with named types or validated `unknown` parsing.
+- Corrected conditional hook ordering in confirmation, room-detail, and availability components.
+- Removed synchronous effect-state cascades from the booking flow and client stores while preserving delayed feedback, storage hydration, persistence, and cross-tab synchronization.
+- Corrected incomplete memo/callback dependencies and removed dead variables, unused props, stale lint directives, and the unreachable legacy direct-confirmation callback.
+- Replaced internal home anchors with Next.js links and escaped JSX copy where required.
+- Kept standalone maintenance scripts in their existing Node CommonJS runtime mode. A narrow `scripts/**/*.js` ESLint override permits `require()` only in that directory; application source rules remain unchanged.
+- Preserved the existing artificial room-results loading transition by moving its timer to the form-submit event and cleaning it up on unmount.
+- Added defensive parsing for blocker and room-availability API payloads before they enter booking state.
+
+### Final verification
+
+| Command/check | Result |
+| --- | --- |
+| `npm run lint` | Pass; zero errors and zero warnings. |
+| `npm run typecheck` | Pass. |
+| `npm run build` | Pass under Next.js 16.3.6; 35 routes/pages generated. |
+| Targeted component lint with `--max-warnings=0` | Pass. |
+| Targeted server/script lint | Pass. |
+| Git whitespace check for each staged slice | Pass; only expected Windows LF-to-CRLF notices were emitted. |
+
+### Decisions and limitations
+
+- The scripts-only CommonJS exception is intentionally scoped and documented. Converting the scripts to ESM would require coordinating their direct Node entry points and is not necessary to make application lint enforcement meaningful.
+- Local-storage providers still hydrate after the server render to avoid server/client markup divergence. Persistence is guarded until that read completes so an empty first render cannot overwrite stored data.
+- Phase 2 provides static quality gates, not behavior regression coverage. Automated domain, authorization, time-boundary, and workflow tests remain Phase 5 work after Phase 3 creates testable boundaries.
+- Large page decomposition, database migrations, transactional workflows, recommendation consolidation, and accessibility improvements beyond the lint-correct hook structure remain assigned to later phases.
+- No remote settings, deployment settings, database objects, or production data were changed.
+
+### Rollback
+
+The four implementation concerns are isolated in the commits above and can be reverted in reverse order. The scripts override should be reverted together with either a CommonJS-to-ESM migration or the script lint fixes so the repository does not silently return to a failing lint gate.
