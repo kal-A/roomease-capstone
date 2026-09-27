@@ -25,7 +25,6 @@ import { RoomRecommendation } from "@/components/RoomRecommendation";
 import type { TimeBarBooking } from "@/components/TimeBar";
 import { buildBookingRange } from "@/lib/bookingTime";
 import { DateTime } from "luxon";
-import { getAppRoleFromEmail } from "@/lib/userRole";
 
 const TOTAL_STEPS_FULL = 3;
 const TOTAL_STEPS_DIRECT = 2;
@@ -264,7 +263,10 @@ function BookPageContent() {
 
   const totalSteps = lockedRoom ? TOTAL_STEPS_DIRECT : TOTAL_STEPS_FULL;
   const { data: session } = useSession();
-  const isMember = useMemo(() => getAppRoleFromEmail(session?.user?.email) === "member", [session?.user?.email]);
+  const isMember = useMemo(
+    () => (session?.user?.role ?? "member") === "member",
+    [session?.user?.role]
+  );
   const [confirmFlow, setConfirmFlow] = useState<"booking" | "member_request">("booking");
   const [liveRoomBookings, setLiveRoomBookings] = useState<TimeBarBooking[]>([]);
   const [blockedForDate, setBlockedForDate] = useState<

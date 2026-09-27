@@ -2,24 +2,18 @@
 
 import { useMemo, useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useSession } from "next-auth/react";
 
 type DirectoryUser = { name: string; email: string };
 
-/** Mock UW directory for demo; replace with real directory API later */
-const MOCK_UW_DIRECTORY: DirectoryUser[] = [
-  { name: "Farhan Valli", email: "fvalli@uwaterloo.ca" },
-  { name: "Pranav Gupta", email: "p73gupta@uwaterloo.ca" },
-  { name: "Jey Jeyapalan", email: "sjeyapal@uwaterloo.ca" },
-  { name: "Kamal Ahsan", email: "k4ahsan@uwaterloo.ca" },
-  { name: "Gurman Rai", email: "g5rai@uwaterloo.ca" },
-  { name: "Alex Chen", email: "a25chen@uwaterloo.ca" },
-  { name: "Sam Jordan", email: "sam@uwaterloo.ca" },
-  { name: "Jordan Lee", email: "jordan@uwaterloo.ca" },
-  { name: "Chen Wang", email: "chen@uwaterloo.ca" },
-  { name: "Admin", email: "admin@uwaterloo.ca" },
-  { name: "Arts Space Team", email: "arts-space@uwaterloo.ca" },
-  { name: "Events Office", email: "events@uwaterloo.ca" },
+/** Synthetic directory entries available only in explicitly enabled demo mode. */
+const DEMO_UW_DIRECTORY: DirectoryUser[] = [
+  { name: "Demo Member", email: "demo-member@uwaterloo.ca" },
+  { name: "Demo Executive", email: "demo-executive@uwaterloo.ca" },
+  { name: "Demo Administrator", email: "demo-admin@uwaterloo.ca" },
+  { name: "Demo Participant", email: "demo-participant@uwaterloo.ca" },
 ];
+const EMPTY_DIRECTORY: DirectoryUser[] = [];
 
 const RECENTS_KEY = "roomease.recentInvites.v1";
 const MAX_RECENTS = 5;
@@ -75,6 +69,7 @@ export function ParticipantInvites({
   placeholder = "Search by name or @uwaterloo.ca email",
   className = "",
 }: ParticipantInvitesProps) {
+  const { data: session } = useSession();
   const [input, setInput] = useState("");
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
@@ -85,6 +80,7 @@ export function ParticipantInvites({
   const inputRef = useRef<HTMLInputElement>(null);
   const blurTimeoutRef = useRef<number | null>(null);
   const emails = value ?? [];
+  const directory = session?.user?.demoMode ? DEMO_UW_DIRECTORY : EMPTY_DIRECTORY;
 
   useEffect(() => {
     const stored = safeParseJson<DirectoryUser[]>(typeof window !== "undefined" ? window.localStorage.getItem(RECENTS_KEY) : null, []);
@@ -119,7 +115,7 @@ export function ParticipantInvites({
     const normalizedEmail = normalizeEmail(query);
 
     const exclude = new Set(emails.map((e) => e.toLowerCase()));
-    const all = MOCK_UW_DIRECTORY.filter((u) => !exclude.has(u.email.toLowerCase()));
+    const all = directory.filter((u) => !exclude.has(u.email.toLowerCase()));
 
     if (!q) return all.slice(0, 8);
 
@@ -151,7 +147,7 @@ export function ParticipantInvites({
       unique.push(u);
     }
     return unique.slice(0, 8);
-  }, [query, emails]);
+  }, [query, emails, directory]);
 
   const recentSuggestions = useMemo(() => {
     const exclude = new Set(emails.map((e) => e.toLowerCase()));
@@ -291,11 +287,11 @@ export function ParticipantInvites({
             >
               <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--primary)]/20 text-[11px] font-semibold text-[var(--primary)] transition-transform duration-200 group-hover:scale-[1.03]">
                 {getFirstLastInitials(
-                  MOCK_UW_DIRECTORY.find((u) => u.email.toLowerCase() === email.toLowerCase())?.name ?? email
+                  directory.find((u) => u.email.toLowerCase() === email.toLowerCase())?.name ?? email
                 )}
               </span>
               <span className="max-w-[220px] truncate">
-                {MOCK_UW_DIRECTORY.find((u) => u.email.toLowerCase() === email.toLowerCase())?.name ?? email}
+                {directory.find((u) => u.email.toLowerCase() === email.toLowerCase())?.name ?? email}
               </span>
               <button
                 type="button"

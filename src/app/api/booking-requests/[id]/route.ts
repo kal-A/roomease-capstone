@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { getAppRoleFromEmail } from "@/lib/userRole";
 import { insertBookingCore } from "@/lib/server/insertBookingCore";
 
 type PatchBody = {
@@ -16,7 +15,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const role = session.user.role ?? getAppRoleFromEmail(session.user.email);
+  const role = session.user.role ?? "member";
   if (role !== "executive") {
     return NextResponse.json({ error: "Only club executives can review requests." }, { status: 403 });
   }

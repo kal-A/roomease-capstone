@@ -18,7 +18,6 @@ import {
   CartesianGrid,
 } from "recharts";
 import { useBookings } from "@/lib/bookingsStore";
-import { getAppRoleFromEmail } from "@/lib/userRole";
 import { getBuildingTicketLabel } from "@/lib/buildings";
 import {
   getScopedBookings,
@@ -76,7 +75,7 @@ export default function AnalyticsPage() {
   const { bookings } = useBookings();
   const { data: session } = useSession();
   const email = session?.user?.email ?? null;
-  const role = session?.user?.role ?? getAppRoleFromEmail(session?.user?.email);
+  const role = session?.user?.role ?? "member";
   const scopedBookings = useMemo(() => {
     if (role === "member") {
       // `/api/bookings/mine` already scopes visible rows for members (own + club exec).

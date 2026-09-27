@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { getAppRoleFromEmail } from "@/lib/userRole";
 import { insertBookingCore, type BookingProvenance } from "@/lib/server/insertBookingCore";
 
 /** Request body (camelCase) from client */
@@ -24,7 +23,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const role = session.user.role ?? getAppRoleFromEmail(session.user.email);
+  const role = session.user.role ?? "member";
   if (role === "member") {
     return NextResponse.json(
       {

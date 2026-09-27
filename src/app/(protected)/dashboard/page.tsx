@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { DateTime } from "luxon";
 import { useBookings } from "@/lib/bookingsStore";
-import { getAppRoleFromEmail } from "@/lib/userRole";
 import { getTopRooms, getTopBuildings, getTrendsByClub } from "@/lib/bookingAnalytics";
 import { RoleBadge } from "@/components/RoleBadge";
 import { EmptyState } from "@/components/EmptyState";
@@ -14,7 +13,7 @@ type Membership = { club_name: string; role_in_club: string; joined_at?: string 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const { bookings } = useBookings();
-  const role = session?.user?.role ?? getAppRoleFromEmail(session?.user?.email);
+  const role = session?.user?.role ?? "member";
   const [memberships, setMemberships] = useState<Membership[]>([]);
 
   useEffect(() => {

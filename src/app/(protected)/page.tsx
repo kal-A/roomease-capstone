@@ -5,7 +5,6 @@ import Image from "next/image";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { getAppRoleFromEmail } from "@/lib/userRole";
 import { motion, AnimatePresence } from "framer-motion";
 
 const NAVBAR_OFFSET = 72; // sticky header height for scroll offset
@@ -15,7 +14,7 @@ function HomePageContent() {
   const hasScrolledRef = useRef(false);
   const lastScrollYRef = useRef(0);
   const { data: session } = useSession();
-  const isMemberUser = getAppRoleFromEmail(session?.user?.email) === "member";
+  const isMemberUser = (session?.user?.role ?? "member") === "member";
   const [activeSection, setActiveSection] = useState<"learn-more" | "why" | "about" | null>(null);
   const [showSectionNav, setShowSectionNav] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);

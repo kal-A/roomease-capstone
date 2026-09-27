@@ -1,34 +1,7 @@
-/**
- * Demo + app role mapping from authenticated email.
- * Keep in sync with session (see auth callbacks).
- */
-
 export type AppRole = "admin" | "executive" | "member";
-
-const ADMIN_EMAIL = "fvalli@uwaterloo.ca";
-const ADMIN_EMAIL_2 = "k4ahsan@uwaterloo.ca";
-const EXEC_EMAIL = "g5rai@uwaterloo.ca";
-const MEMBER_EMAIL = "p73gupta@uwaterloo.ca";
-
-const EMAIL_ROLE: Record<string, AppRole> = {
-  [ADMIN_EMAIL]: "admin",
-  [ADMIN_EMAIL_2]: "admin",
-  [EXEC_EMAIL]: "executive",
-  [MEMBER_EMAIL]: "member",
-};
 
 export function normalizeEmail(email: string | null | undefined): string {
   return String(email ?? "").trim().toLowerCase();
-}
-
-/**
- * Map known demo accounts exactly.
- * Everyone else defaults to member for safer permissions.
- */
-export function getAppRoleFromEmail(email: string | null | undefined): AppRole {
-  const key = normalizeEmail(email);
-  if (EMAIL_ROLE[key]) return EMAIL_ROLE[key];
-  return "member";
 }
 
 export function roleDisplayLabel(role: AppRole): string {
@@ -67,12 +40,12 @@ export function getPermissionsForRole(role: AppRole): RolePermissions {
   };
 }
 
-export function getUserRoleInfo(email: string | null | undefined) {
-  const role = getAppRoleFromEmail(email);
+export function getUserRoleInfo(role: AppRole | null | undefined) {
+  const resolvedRole = role ?? "member";
   return {
-    role,
-    displayLabel: roleDisplayLabel(role),
-    permissions: getPermissionsForRole(role),
+    role: resolvedRole,
+    displayLabel: roleDisplayLabel(resolvedRole),
+    permissions: getPermissionsForRole(resolvedRole),
   };
 }
 
@@ -106,7 +79,7 @@ export function getEffectiveAppRole(
   sessionRole: AppRole | null | undefined,
   adminPortalMode: AdminPortalMode | null | undefined
 ): AppRole {
-  const base = sessionRole ?? "executive";
+  const base = sessionRole ?? "member";
   // Admin remains admin-only regardless of portal mode.
   if (base === "admin") return "admin";
   return base;

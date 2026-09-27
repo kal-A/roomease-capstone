@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { getAppRoleFromEmail } from "@/lib/userRole";
 
 type MembershipRow = { club_name: string; user_email: string; role_in_club: string };
 
@@ -31,7 +30,7 @@ export async function GET() {
   }
 
   const email = session.user.email.trim().toLowerCase();
-  const role = session.user.role ?? getAppRoleFromEmail(session.user.email);
+  const role = session.user.role ?? "member";
 
   if (role !== "member") {
     const { data, error } = await sb

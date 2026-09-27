@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { DateTime } from "luxon";
 import { EmptyState } from "@/components/EmptyState";
-import { getAppRoleFromEmail } from "@/lib/userRole";
 import { ROOMS } from "@/data/rooms";
 
 type RequestRow = {
@@ -32,7 +31,7 @@ function formatRange(startIso: string, endIso: string): string {
 
 export default function ExecRequestsPage() {
   const { data: session, status } = useSession();
-  const role = session?.user?.role ?? getAppRoleFromEmail(session?.user?.email);
+  const role = session?.user?.role ?? "member";
   const allowed = role === "executive";
 
   const [rows, setRows] = useState<RequestRow[]>([]);

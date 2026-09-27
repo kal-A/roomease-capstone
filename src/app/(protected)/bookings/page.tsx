@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { getAppRoleFromEmail } from "@/lib/userRole";
 import { useBookings, type Booking, formatBookingTime } from "@/lib/bookingsStore";
 import { EditBookingModal } from "@/components/EditBookingModal";
 import { DeleteBookingModal } from "@/components/DeleteBookingModal";
@@ -320,7 +319,7 @@ const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function MyBookingsPage() {
   const { data: session } = useSession();
-  const appRole = session?.user?.role ?? getAppRoleFromEmail(session?.user?.email);
+  const appRole = session?.user?.role ?? "member";
   const sessionEmail = (session?.user?.email ?? "").trim().toLowerCase();
   const canMutateBooking = useCallback(
     (b: Booking) => {

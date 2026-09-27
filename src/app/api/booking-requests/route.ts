@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { getAppRoleFromEmail } from "@/lib/userRole";
+import { getIdentityServerEnv } from "@/lib/config/server";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -11,7 +11,7 @@ export async function GET() {
   }
 
   const email = session.user.email.trim().toLowerCase();
-  const role = session.user.role ?? getAppRoleFromEmail(session.user.email);
+  const role = session.user.role ?? "member";
 
   try {
     const sb = supabaseServer();
@@ -65,16 +65,13 @@ type CreateBody = {
 
 type MembershipRow = { club_name: string; user_email: string; role_in_club: string };
 
-const DEMO_MEMBER_EMAIL = "p73gupta@uwaterloo.ca";
-const DEMO_EXEC_EMAIL = "g5rai@uwaterloo.ca";
-
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const role = session.user.role ?? getAppRoleFromEmail(session.user.email);
+  const role = session.user.role ?? "member";
   if (role !== "member") {
     return NextResponse.json({ error: "Only club members create recommendation requests." }, { status: 403 });
   }
@@ -92,7 +89,8 @@ export async function POST(req: Request) {
   }
 
   const email = session.user.email.trim().toLowerCase();
-  const isDemoMember = email === DEMO_MEMBER_EMAIL;
+  const { demo } = getIdentityServerEnv();
+  const isDemoMember = demo.enabled && email === demo.memberEmail;
 
   let sb;
   try {
@@ -105,11 +103,11 @@ export async function POST(req: Request) {
   let club = requestedClub;
   let execEmail = targetExecutiveEmail?.trim().toLowerCase() || "";
 
-  // Demo override: Pranav can always submit without club membership association.
-  // Route every request directly to Gurman's executive inbox.
+  // Explicit non-production demo mode may bypass membership lookup and route to
+  // the configured demo executive. Production rejects demo mode at startup.
   if (isDemoMember) {
     club = requestedClub || organizerName?.trim() || "Member Request";
-    execEmail = DEMO_EXEC_EMAIL;
+    execEmail = demo.executiveEmail ?? "";
   }
 
   if (!isDemoMember) {

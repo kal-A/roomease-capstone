@@ -4,6 +4,8 @@
  * SAFETY:
  * - This uses the Supabase *service role* key and therefore bypasses RLS.
  * - By default, it runs as a dry-run (read-only). Use `--apply` to actually insert.
+ * - Mutation also requires ROOM_EASE_DEMO_MODE=true and ROOM_EASE_ALLOW_DEMO_SEED=true.
+ * - Mutation is always rejected when NODE_ENV=production.
  * - If you want to reset and re-insert, use `--cleanup --apply`.
  *
  * Usage:
@@ -26,27 +28,36 @@ const clubsJson = require("../src/data/clubs.json");
 const fs = require("fs");
 const path = require("path");
 
-const {
-  NEXT_PUBLIC_SUPABASE_URL: SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY: SERVICE_ROLE_KEY,
-} = process.env;
-
 const ROOM_IDS = ["AL-209", "AL-210", "CPH-1346", "MC-2035"];
 
-const DEMO_USERS = [
-  { email: "fvalli@uwaterloo.ca", name: "Farhan Valli", isAdmin: true },
-  { email: "g5rai@uwaterloo.ca", name: "Gurman Rai", isAdmin: false },
-  { email: "p73gupta@uwaterloo.ca", name: "Pranav Gupta", isAdmin: false },
-  { email: "k4ahsan@uwaterloo.ca", name: "Kamal Ahsan", isAdmin: false },
-  { email: "sjeyapal@uwaterloo.ca", name: "Jey Jeyapalan", isAdmin: false },
-];
-
-const DEMO_NON_ADMIN_USERS = DEMO_USERS.filter((u) => !u.isAdmin);
+let DEMO_USERS = [];
+let DEMO_NON_ADMIN_USERS = [];
 
 function requireEnv(name) {
   const v = process.env[name];
   if (!v) throw new Error(`Missing ${name} in environment`);
   return v;
+}
+
+function buildDemoUsers() {
+  const adminEmail = String(process.env.ROOM_EASE_ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .find(Boolean) ?? "demo-admin@uwaterloo.ca";
+  const executiveEmail =
+    String(process.env.ROOM_EASE_DEMO_EXECUTIVE_EMAIL ?? "").trim().toLowerCase() ||
+    "demo-executive@uwaterloo.ca";
+  const memberEmail =
+    String(process.env.ROOM_EASE_DEMO_MEMBER_EMAIL ?? "").trim().toLowerCase() ||
+    "demo-member@uwaterloo.ca";
+
+  return [
+    { email: adminEmail, name: "Demo Administrator", isAdmin: true },
+    { email: executiveEmail, name: "Demo Executive", isAdmin: false },
+    { email: memberEmail, name: "Demo Member", isAdmin: false },
+    { email: "demo-organizer@uwaterloo.ca", name: "Demo Organizer", isAdmin: false },
+    { email: "demo-participant@uwaterloo.ca", name: "Demo Participant", isAdmin: false },
+  ];
 }
 
 function loadEnvFileIfPresent(envFilePath) {
@@ -185,6 +196,23 @@ loadEnvFileIfPresent(path.join(__dirname, "../.env"));
 
 async function run() {
   const { apply, cleanup, anchorStr } = parseArgs(process.argv.slice(2));
+
+  if (apply && process.env.NODE_ENV === "production") {
+    throw new Error("Demo seed mutation is disabled when NODE_ENV=production.");
+  }
+  if (
+    apply &&
+    (process.env.ROOM_EASE_DEMO_MODE !== "true" ||
+      process.env.ROOM_EASE_ALLOW_DEMO_SEED !== "true")
+  ) {
+    throw new Error(
+      "Demo seed mutation requires ROOM_EASE_DEMO_MODE=true and " +
+        "ROOM_EASE_ALLOW_DEMO_SEED=true in addition to --apply."
+    );
+  }
+
+  DEMO_USERS = buildDemoUsers();
+  DEMO_NON_ADMIN_USERS = DEMO_USERS.filter((user) => !user.isAdmin);
 
   const supabaseUrl = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
   const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");

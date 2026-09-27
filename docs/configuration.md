@@ -43,6 +43,7 @@ The service-role key must never use a `NEXT_PUBLIC_` prefix. The current reposit
 | Variable | Exposure | Purpose |
 | --- | --- | --- |
 | `ROOM_EASE_ADMIN_EMAILS` | Server | Comma-separated administrator email allowlist. |
+| `ROOM_EASE_EXECUTIVE_EMAILS` | Server | Transitional comma-separated executive allowlist until role membership is database-backed. |
 | `ROOM_EASE_DEMO_MODE` | Server | Explicitly enables configured demo identity behavior outside production. |
 | `ROOM_EASE_DEMO_MEMBER_EMAIL` | Server | Optional demo member identity. |
 | `ROOM_EASE_DEMO_EXECUTIVE_EMAIL` | Server | Optional demo executive identity. |

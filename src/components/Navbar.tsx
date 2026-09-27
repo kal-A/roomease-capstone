@@ -7,7 +7,6 @@ import { useSession, signOut } from "next-auth/react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { AppRole } from "@/lib/userRole";
 import {
-  getAppRoleFromEmail,
   getEffectiveAppRole,
   readAdminPortalMode,
   writeAdminPortalMode,
@@ -84,7 +83,7 @@ export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, status } = useSession();
-  const sessionRole = (session?.user?.role as AppRole | undefined) ?? getAppRoleFromEmail(session?.user?.email);
+  const sessionRole = (session?.user?.role as AppRole | undefined) ?? "member";
   const [adminMode, setAdminMode] = useState<AdminPortalMode>("admin");
   useEffect(() => {
     setAdminMode(readAdminPortalMode());

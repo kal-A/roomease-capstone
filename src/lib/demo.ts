@@ -1,12 +1,7 @@
 /**
- * Demo mode and demo-only helpers for capstone presentation.
- * When NEXT_PUBLIC_DEMO_MODE=true, use mock data and simulated intelligence.
- * Structure is ready for real backend integration later.
+ * Legacy match-score helpers retained for the capstone presentation UI.
+ * Authorization and demo identity configuration are server-only.
  */
-
-export const isDemoMode = (): boolean =>
-  typeof process !== "undefined" &&
-  process.env?.NEXT_PUBLIC_DEMO_MODE === "true";
 
 /** Context used to compute match score (optional; when from booking flow or filters) */
 export interface MatchContext {

@@ -8,6 +8,7 @@ declare module "next-auth" {
       name: string | null;
       isAdmin: boolean;
       role: AppRole;
+      demoMode: boolean;
     } & DefaultSession["user"];
   }
 }
