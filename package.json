@@ -7,10 +7,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit --incremental false",
     "rooms:convert": "node scripts/convertRoomsToJson.js",
     "rooms:sync": "node scripts/sync-rooms-to-supabase.js",
     "rooms:sync:apply": "node scripts/sync-rooms-to-supabase.js --apply"
   },
+  "engines": {
+    "node": ">=24 <25",
+    "npm": ">=11 <12"
+  },
+  "packageManager": "npm@11.8.0",
   "dependencies": {
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.99.2",
