@@ -2,7 +2,9 @@
 
 Last updated: 2026-09-26
 
-Audit branch: `hardening/phase-0-audit`
+Baseline branch: `hardening/phase-0-audit`
+
+Current hardening branch: `hardening/phase-1-reproducibility`
 
 Audited commit: `03dfa13f6420d2dfb94da6babf7f6034e0770e04`
 
@@ -17,7 +19,7 @@ Phase 0 is an evidence-gathering phase. Application behavior must remain unchang
 | Phase | Status | Exit evidence |
 | --- | --- | --- |
 | 0. Establish baseline | Complete | This document; baseline commands recorded below |
-| 1. Reproducible dependencies/configuration | Proposed, not started | Awaiting review of the exact change set below |
+| 1. Reproducible dependencies/configuration | Complete | Clean install, production audit, typecheck, build, and safety checks recorded below |
 | 2. Code-quality gates | Not started | — |
 | 3. Testable domain layer | Not started | — |
 | 4. Database integrity/reproducibility | Not started | — |
@@ -301,7 +303,7 @@ Differences or refinements:
 - Treat API routes as the current security boundary until RLS and a less privileged data-access design are implemented and tested.
 - Preserve the legitimate controlled user-study results in the README, but validate their source and wording during Phase 9 rather than inventing new impact claims.
 
-## Exact proposed Phase 1 change set
+## Phase 1 implementation plan (completed)
 
 Phase 1 will be limited to dependency/configuration reproducibility and production-safe demo/identity configuration. It will not alter recommendation, booking, approval, or UI behavior when equivalent environment values are supplied.
 
@@ -352,4 +354,59 @@ Phase 1 will be limited to dependency/configuration reproducibility and producti
 - Documentation changed: **Yes; this file only**.
 - Relevant commands run and recorded: **Yes**.
 - Atomic Phase 0 commit: recorded in Git history for this document.
-- Phase 1 started: **No**.
+- Phase 1 started after review: **Yes**.
+
+## Phase 1 completion record
+
+Phase 1 was completed on `hardening/phase-1-reproducibility` without database, recommendation, workflow-transition, or UI-layout refactors.
+
+### Atomic commits
+
+- `aa2fb7e` — `build: make npm installs reproducible`
+- `1399907` — `build: update vulnerable dependencies`
+- `a4f7d1b` — `config: define environment contract`
+- `192d116` — `security: isolate identity and demo configuration`
+- Final verification/documentation commit: recorded in Git history for this section.
+
+### Implemented changes
+
+- Pinned Node 24 and npm 11 with `.nvmrc`, `engines`, and `packageManager` metadata.
+- Added the explicit `npm run typecheck` gate.
+- Regenerated `package-lock.json`, removed `yarn.lock`, and established npm as the only supported lockfile owner.
+- Upgraded Next.js and `eslint-config-next` to 16.3.6 and NextAuth to 4.24.15.
+- Applied compatible transitive audit fixes without `--force` or a semver-major upgrade.
+- Moved `xlsx` to development dependencies and documented its remaining trusted-input exception in `docs/dependency-security.md`.
+- Added tracked `.env.example` and `docs/configuration.md`.
+- Centralized public and server Supabase environment reads; server-side service-role access now fails with a named missing-variable error.
+- Replaced hard-coded administrator/executive identities with server-only `ROOM_EASE_ADMIN_EMAILS` and `ROOM_EASE_EXECUTIVE_EMAILS` configuration.
+- Removed client email-to-role inference. Session-role fallback is now always least-privilege `member`.
+- Replaced named demo identity constants with server-only configuration and generic synthetic directory/seed identities.
+- Production builds reject `ROOM_EASE_DEMO_MODE=true`.
+- Demo seed mutation requires `--apply`, `ROOM_EASE_DEMO_MODE=true`, and `ROOM_EASE_ALLOW_DEMO_SEED=true`, and is rejected when `NODE_ENV=production`.
+
+### Final verification
+
+| Command/check | Result |
+| --- | --- |
+| `npm ci` | Pass; clean dependency installation completed from the committed lockfile. |
+| `npm run typecheck` | Pass. |
+| `npm run build` | Pass under Next.js 16.3.6; 35 routes/pages generated. |
+| `npm audit --omit=dev` | Pass; zero production vulnerabilities. |
+| `npm audit` | One remaining high-severity development advisory in `xlsx`; no registry fix is available and the scoped exception is documented. |
+| `npm run lint` | Expected Phase 2 failure: 73 errors and 37 warnings. No rule was disabled or suppressed. |
+| Production build with demo mode enabled | Correctly rejected by `next.config.ts`. |
+| Production demo seed mutation | Correctly rejected before database access. |
+| Personal email constants in `src/` and scripts | None found. Team-member names remain only as legitimate project attribution. |
+
+### Decisions and limitations
+
+- Administrator and executive allowlists are a transitional Phase 1 mechanism. Database-backed roles, club-scoped authorization, and auditable membership changes remain Phase 3/4 work.
+- Deployments must set `ROOM_EASE_ADMIN_EMAILS` and `ROOM_EASE_EXECUTIVE_EMAILS`; omitted values intentionally grant no elevated role.
+- The one remaining XLSX advisory is accepted only for a developer-run converter over a repository-owned workbook. Uploaded/network workbooks are not supported.
+- No automated test framework was introduced solely for configuration. Configuration and demo rejection were verified directly; automated authorization/configuration tests remain part of Phase 5.
+- The existing lint failures remain visible for Phase 2. Phase 1 did not hide them to create a false green gate.
+- The database schema, RLS, booking-overlap constraint, request transactionality, and workflow synchronization findings are unchanged and remain high-priority later phases.
+
+### Rollback
+
+Each Phase 1 concern is isolated in the commits above and can be reverted in reverse order. No database migration or remote configuration mutation occurred. If the identity-config commit is reverted, do not deploy the former hard-coded identity behavior; restore access through reviewed server configuration instead.

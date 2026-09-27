@@ -11,6 +11,19 @@ A room booking and management web app built as a University of Waterloo engineer
 - Role-based access for users and administrators
 - Analytics dashboard with booking and usage metrics
 
+## Local development
+
+RoomEase uses Node 24 and npm 11. Install the committed dependency graph with `npm ci`; Yarn is not used for this checkout.
+
+Copy `.env.example` to `.env.local`, then follow [`docs/configuration.md`](docs/configuration.md) to configure Microsoft Entra ID and Supabase. The repository does not yet contain a complete local Supabase schema, so review [`docs/engineering-hardening-plan.md`](docs/engineering-hardening-plan.md) before provisioning a fresh database.
+
+```text
+npm ci
+npm run dev
+```
+
+Current dependency-security decisions and the development-only XLSX exception are documented in [`docs/dependency-security.md`](docs/dependency-security.md).
+
 **Validation results from controlled user testing:**
 - Task completion (usability): 50% → 88%
 - User satisfaction: 33% → 90%
