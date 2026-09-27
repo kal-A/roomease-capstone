@@ -70,11 +70,9 @@ function MiniAvailability({ room, date }: { room: Room; date: string }) {
 
 function CompareColumn({
   room,
-  isHighestCapacity,
   index,
 }: {
   room: Room;
-  isHighestCapacity: boolean;
   index: number;
 }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -181,11 +179,6 @@ export default function ComparePage() {
       .slice(0, 3);
   }, [bookings]);
 
-  const maxCapacity = useMemo(
-    () => (compareRooms.length ? Math.max(...compareRooms.map((r) => r.capacity)) : 0),
-    [compareRooms]
-  );
-
   if (compareRooms.length < 2) {
     const isSingle = compareRooms.length === 1;
     return (
@@ -283,7 +276,6 @@ export default function ComparePage() {
             <CompareColumn
               key={room.id}
               room={room}
-              isHighestCapacity={room.capacity === maxCapacity && maxCapacity > 0}
               index={i}
             />
           ))}
@@ -297,7 +289,6 @@ export default function ComparePage() {
             <CompareColumn
               key={compareRooms[mobileIndex].id}
               room={compareRooms[mobileIndex]}
-              isHighestCapacity={compareRooms[mobileIndex].capacity === maxCapacity && maxCapacity > 0}
               index={0}
             />
           </div>

@@ -94,7 +94,6 @@ function getMonthGrid(year: number, month: number): (number | null)[] {
   const firstWeekday = first.getDay();
   const daysInMonth = last.getDate();
   const pad = firstWeekday;
-  const total = pad + daysInMonth;
   const cells: (number | null)[] = [];
   for (let i = 0; i < pad; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
@@ -107,7 +106,6 @@ function dateStr(year: number, month: number, day: number): string {
 
 function DayBookingsModal({
   dateLabel,
-  dateStr: targetDate,
   bookings,
   onClose,
   onViewDetails,
@@ -115,7 +113,6 @@ function DayBookingsModal({
   canEditBooking,
 }: {
   dateLabel: string;
-  dateStr: string;
   bookings: Booking[];
   onClose: () => void;
   onViewDetails: (b: Booking) => void;
@@ -816,7 +813,6 @@ export default function MyBookingsPage() {
       {dayModal && (
         <DayBookingsModal
           dateLabel={dayModal.dateLabel}
-          dateStr={dayModal.dateStr}
           bookings={dayModalBookings}
           onClose={() => setDayModal(null)}
           onViewDetails={setDetails}

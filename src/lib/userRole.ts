@@ -79,6 +79,7 @@ export function getEffectiveAppRole(
   sessionRole: AppRole | null | undefined,
   adminPortalMode: AdminPortalMode | null | undefined
 ): AppRole {
+  void adminPortalMode;
   const base = sessionRole ?? "member";
   // Admin remains admin-only regardless of portal mode.
   if (base === "admin") return "admin";

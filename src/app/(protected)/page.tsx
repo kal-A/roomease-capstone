@@ -354,12 +354,12 @@ function HomePageContent() {
                 Who we are
               </h3>
               <p className="text-base leading-relaxed text-[var(--textSecondary)]">
-                We're a team of University of Waterloo students building RoomEase as a capstone project. Our focus is a clean, UI-first booking experience that feels production-ready while keeping the logic intentionally simple for an MVP.
+                We’re a team of University of Waterloo students building RoomEase as a capstone project. Our focus is a clean, UI-first booking experience that feels production-ready while keeping the logic intentionally simple for an MVP.
               </p>
             </div>
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md p-8 shadow-lg">
               <h3 className="mb-4 text-2xl font-semibold tracking-tight text-[var(--text)]">
-                The problem we're solving
+                The problem we’re solving
               </h3>
               <p className="text-base leading-relaxed text-[var(--textSecondary)]">
                 Room bookings on campus can be fragmented and unclear. RoomEase centralizes event intake, recommends suitable rooms based on constraints, and confirms bookings in a single flow—while simulating availability and preventing double bookings.

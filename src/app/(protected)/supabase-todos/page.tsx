@@ -1,6 +1,11 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 
+interface TodoRow {
+  id: string | number;
+  name?: unknown;
+}
+
 export default async function SupabaseTodosPage() {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
@@ -28,7 +33,7 @@ export default async function SupabaseTodosPage() {
         Showing rows from <span className="font-mono">todos</span>.
       </p>
       <ul className="mt-6 space-y-2">
-        {(todos ?? []).map((todo: any) => (
+        {((todos ?? []) as TodoRow[]).map((todo) => (
           <li
             key={todo.id}
             className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-5 py-3 text-sm text-[var(--text)]"

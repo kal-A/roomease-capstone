@@ -150,14 +150,15 @@ export default function AdminAnalyticsPage() {
   const insights = useMemo(() => {
     const peakHour = analytics?.overview?.peakHour ?? null;
     const peakDay = analytics?.overview?.peakDay ?? null;
-    const mostRequestedRoom = topRooms[0]?.label ?? null;
-    const underutilizedRoom = topRooms[topRooms.length - 1]?.label ?? null;
-    const highestApprovalRate = topClubs[0]?.label ?? null;
-    const highPendingRoom = perRoomClubs[0]?.roomName ?? null;
-    const buildingHotspot = topBuildings[0]?.label ?? null;
+    const analyticsTopRooms = analytics?.topRooms ?? [];
+    const mostRequestedRoom = analyticsTopRooms[0]?.label ?? null;
+    const underutilizedRoom = analyticsTopRooms[analyticsTopRooms.length - 1]?.label ?? null;
+    const highestApprovalRate = analytics?.topClubs[0]?.label ?? null;
+    const highPendingRoom = analytics?.perRoomClubs[0]?.roomName ?? null;
+    const buildingHotspot = analytics?.topBuildings[0]?.label ?? null;
 
     return { peakHour, peakDay, mostRequestedRoom, underutilizedRoom, highestApprovalRate, highPendingRoom, buildingHotspot };
-  }, [analytics, topRooms, topClubs, perRoomClubs, topBuildings]);
+  }, [analytics]);
   const initialLoading = loading && !analytics;
 
   useEffect(() => {

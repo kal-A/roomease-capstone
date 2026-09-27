@@ -1,7 +1,7 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { Room } from "@/types/booking";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import type { EventFormData, Room } from "@/types/booking";
 import { formatDuration, formatTimeSlot } from "@/types/booking";
 import { formatFurniture } from "@/lib/furniture";
 import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
@@ -88,7 +88,7 @@ export type BookingUpdate = Partial<
 
 interface BookingsContextValue {
   bookings: Booking[];
-  addBooking: (args: { form: any; room: Room; organizerEmail?: string; backendBookingId?: string }) => Booking;
+  addBooking: (args: AddBookingArgs) => Booking;
   updateBooking: (bookingId: string, updates: BookingUpdate) => void;
   setBookingStatus: (bookingId: string, status: BookingStatus) => void;
   cancelBooking: (bookingId: string) => void;
@@ -97,16 +97,43 @@ interface BookingsContextValue {
 
 const BookingsContext = createContext<BookingsContextValue | null>(null);
 
+interface AddBookingArgs {
+  form: EventFormData;
+  room: Room;
+  organizerEmail?: string;
+  backendBookingId?: string;
+}
+
+function loadStoredBookings(): Booking[] {
+  if (typeof window === "undefined") return [];
+  const stored = safeParse<Booking[]>(localStorage.getItem(STORAGE_KEY), []);
+  return Array.isArray(stored) ? stored : [];
+}
+
+function loadStoredSequence(): number {
+  if (typeof window === "undefined") return 1;
+  const storedSeq = safeParse<number>(localStorage.getItem(SEQ_KEY), 1);
+  return typeof storedSeq === "number" && storedSeq > 0 ? storedSeq : 1;
+}
+
 export function BookingsProvider({ children }: { children: React.ReactNode }) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [seq, setSeq] = useState<number>(1);
+  const hydratedRef = useRef(false);
 
-  // Hydrate
+  // Read browser storage after hydration so the server and first client render
+  // agree. Defer the state update to avoid a synchronous effect cascade.
   useEffect(() => {
-    const stored = safeParse<Booking[]>(localStorage.getItem(STORAGE_KEY), []);
-    const storedSeq = safeParse<number>(localStorage.getItem(SEQ_KEY), 1);
-    setBookings(Array.isArray(stored) ? stored : []);
-    setSeq(typeof storedSeq === "number" && storedSeq > 0 ? storedSeq : 1);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setBookings(loadStoredBookings());
+      setSeq(loadStoredSequence());
+      hydratedRef.current = true;
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Cross-tab sync: when another tab adds a booking, storage event fires here
@@ -135,9 +162,11 @@ export function BookingsProvider({ children }: { children: React.ReactNode }) {
 
   // Persist
   useEffect(() => {
+    if (!hydratedRef.current) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
   }, [bookings]);
   useEffect(() => {
+    if (!hydratedRef.current) return;
     localStorage.setItem(SEQ_KEY, JSON.stringify(seq));
   }, [seq]);
 
@@ -147,7 +176,7 @@ export function BookingsProvider({ children }: { children: React.ReactNode }) {
       room,
       organizerEmail,
       backendBookingId,
-    }: { form: any; room: Room; organizerEmail?: string; backendBookingId?: string }) => {
+    }: AddBookingArgs) => {
       const { confirmationNumber, nextSeq: n } = nextConfirmationNumber(seq);
       setSeq(n);
       const createdAtIso = new Date().toISOString();

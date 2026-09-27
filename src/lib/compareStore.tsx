@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 const STORAGE_KEY = "roomease.compare.v1";
 const MAX_COMPARE = 4;
@@ -30,12 +30,22 @@ const CompareContext = createContext<CompareContextValue | null>(null);
 
 export function CompareProvider({ children }: { children: React.ReactNode }) {
   const [compareIds, setCompareIds] = useState<string[]>([]);
+  const hydratedRef = useRef(false);
 
   useEffect(() => {
-    setCompareIds(loadStored());
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setCompareIds(loadStored());
+      hydratedRef.current = true;
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
+    if (!hydratedRef.current) return;
     if (compareIds.length > 0) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(compareIds));
     } else {

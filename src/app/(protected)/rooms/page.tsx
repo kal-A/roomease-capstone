@@ -7,6 +7,7 @@ import { RoomDetailsModal } from "@/components/RoomDetailsModal";
 import {
   filterAndSortRooms,
   RoomsFilters,
+  type SortOption,
   useRoomsFilters,
 } from "@/components/RoomsFilters";
 import { EmptyState } from "@/components/EmptyState";
@@ -67,7 +68,7 @@ export default function RoomsDashboardPage() {
                 <span>Sort</span>
                 <select
                   value={filters.state.sort}
-                  onChange={(e) => filters.setSort(e.target.value as any)}
+                  onChange={(e) => filters.setSort(e.target.value as SortOption)}
                   className="rounded-xl border border-[var(--border)] bg-[var(--surface)] backdrop-blur-md px-4 py-2.5 text-sm text-[var(--text)] transition-all duration-200 focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--focusRing)]"
                 >
                   <option value="recommended">Recommended</option>
@@ -151,7 +152,7 @@ export default function RoomsDashboardPage() {
           animate="visible"
           variants={{ visible: { transition: { staggerChildren: 0.04 } } }}
         >
-          {finalRooms.map((room, index) => (
+          {finalRooms.map((room) => (
             <motion.div key={room.id} variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }}>
               <RoomDashboardCard
                 room={room}

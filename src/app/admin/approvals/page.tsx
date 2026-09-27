@@ -31,7 +31,6 @@ interface AdminBooking {
   workflowLines?: string[];
 }
 
-const MOCK_BOOKINGS: AdminBooking[] = [];
 /*
   {
     id: "1",
