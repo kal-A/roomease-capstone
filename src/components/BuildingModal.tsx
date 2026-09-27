@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
 interface BuildingModalProps {
@@ -19,12 +19,11 @@ export function BuildingModal({
   buildings,
 }: BuildingModalProps) {
   const [search, setSearch] = useState("");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
+  const mounted = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false
+  );
 
   const handleEscape = useCallback(
     (e: KeyboardEvent) => {

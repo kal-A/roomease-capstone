@@ -13,7 +13,6 @@ import {
   roomIsStreamingRecordingCapable,
 } from "@/types/booking";
 import { getBuildingTicketLabel } from "@/lib/buildings";
-import { getRoomMetadataWithDefaults } from "@/data/roomMetadata";
 
 interface RoomCardProps {
   room: Room;
@@ -30,7 +29,6 @@ interface RoomCardProps {
 
 export function RoomCard({
   room,
-  groupSize,
   avNeedsEnabled,
   avNeeds,
   furnitureNeedsEnabled,
@@ -40,7 +38,6 @@ export function RoomCard({
   isBestMatch = false,
   selectActionLabel = "Book this room",
 }: RoomCardProps) {
-  const fitsGroup = room.capacity >= groupSize;
   const hasStreaming = roomIsStreamingRecordingCapable(room);
   const hasElectronic = roomIsElectronicClassroom(room);
   const hasDocCamera = roomHasDocumentCamera(room);

@@ -18,10 +18,13 @@ function ThemeToggle() {
   const [theme, setThemeState] = useState<"dark" | "light">("dark");
 
   useEffect(() => {
-    const root = document.documentElement;
-    const stored = localStorage.getItem("theme") as "dark" | "light" | null;
-    const isLight = root.getAttribute("data-theme") === "light" || stored === "light";
-    setThemeState(isLight ? "light" : "dark");
+    const timer = window.setTimeout(() => {
+      const root = document.documentElement;
+      const stored = localStorage.getItem("theme") as "dark" | "light" | null;
+      const isLight = root.getAttribute("data-theme") === "light" || stored === "light";
+      setThemeState(isLight ? "light" : "dark");
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const toggle = () => {
@@ -86,12 +89,15 @@ export function Navbar() {
   const sessionRole = (session?.user?.role as AppRole | undefined) ?? "member";
   const [adminMode, setAdminMode] = useState<AdminPortalMode>("admin");
   useEffect(() => {
-    setAdminMode(readAdminPortalMode());
+    const timer = window.setTimeout(() => setAdminMode(readAdminPortalMode()), 0);
     const onStorage = (e: StorageEvent) => {
       if (e.key === "roomease.adminPortalMode") setAdminMode(readAdminPortalMode());
     };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
   const effectiveRole = getEffectiveAppRole(sessionRole, adminMode);
   const showExecTools = effectiveRole === "executive";
@@ -138,7 +144,7 @@ export function Navbar() {
         <nav className="mx-auto flex h-14 max-w-[1200px] items-center justify-between gap-4 px-6 sm:px-8 lg:px-10">
           <div className="flex min-w-0 flex-1 items-center gap-4">
             <ThemeToggle />
-            <a
+            <Link
               href="/"
               onClick={handleHomeClick}
               className="flex shrink-0 items-center gap-2 transition-opacity hover:opacity-90"
@@ -163,7 +169,7 @@ export function Navbar() {
                 </svg>
               </span>
               <span className="text-xl font-semibold tracking-tight text-[var(--foreground)]">RoomEase</span>
-            </a>
+            </Link>
           </div>
           {/* no links during auth stage */}
         </nav>
@@ -176,7 +182,7 @@ export function Navbar() {
       <nav className="mx-auto flex h-14 max-w-[1200px] items-center justify-between gap-4 px-6 sm:px-8 lg:px-10">
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <ThemeToggle />
-          <a
+          <Link
             href="/"
             onClick={handleHomeClick}
             className="flex shrink-0 items-center gap-2 transition-opacity hover:opacity-90"
@@ -189,7 +195,7 @@ export function Navbar() {
               </svg>
             </span>
             <span className="text-xl font-semibold tracking-tight text-[var(--foreground)]">RoomEase</span>
-          </a>
+          </Link>
         </div>
         <div className="flex items-center gap-6 sm:gap-8">
           {status === "loading" ? (

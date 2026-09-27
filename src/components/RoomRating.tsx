@@ -29,7 +29,7 @@ function StarIcon({ filled, className = "" }: { filled: boolean; className?: str
 }
 
 export function RoomRating({ roomId, compact, showRateForm, className = "" }: RoomRatingProps) {
-  const { average, count, displayCount } = getRoomRating(roomId);
+  const { average, displayCount } = getRoomRating(roomId);
   const reviewCount = displayCount ?? getDisplayReviewCount(roomId);
   const [dimensions, setDimensions] = useState<Record<ReviewDimension, number>>({
     lighting: 3,

@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { MatchReason } from "@/lib/demo";
 import { getMatchScore, type MatchContext } from "@/lib/demo";
 import type { Room } from "@/types/booking";
 

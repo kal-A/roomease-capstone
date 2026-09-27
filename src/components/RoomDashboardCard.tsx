@@ -23,14 +23,12 @@ const CAP_MAX = 400;
 export function RoomDashboardCard({
   room,
   onViewDetails,
-  hoveredRoomId,
   onHoverStart,
   onHoverEnd,
   showRating = true,
 }: RoomDashboardCardProps) {
   const [quickViewOpen, setQuickViewOpen] = useState(false);
   const { isInCompare, toggleCompare } = useCompare();
-  const isHovered = hoveredRoomId !== undefined && String(hoveredRoomId) === String(room.id);
   const inCompare = isInCompare(room.id);
 
   const handleMouseEnter = useCallback(() => onHoverStart?.(), [onHoverStart]);

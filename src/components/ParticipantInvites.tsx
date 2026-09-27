@@ -73,26 +73,26 @@ export function ParticipantInvites({
   const [input, setInput] = useState("");
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
-  const [recent, setRecent] = useState<DirectoryUser[]>([]);
-  const [query, setQuery] = useState("");
-  const [inlineError, setInlineError] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const blurTimeoutRef = useRef<number | null>(null);
-  const emails = value ?? [];
-  const directory = session?.user?.demoMode ? DEMO_UW_DIRECTORY : EMPTY_DIRECTORY;
-
-  useEffect(() => {
-    const stored = safeParseJson<DirectoryUser[]>(typeof window !== "undefined" ? window.localStorage.getItem(RECENTS_KEY) : null, []);
-    const cleaned = Array.isArray(stored)
+  const [recent, setRecent] = useState<DirectoryUser[]>(() => {
+    const stored = safeParseJson<DirectoryUser[]>(
+      typeof window !== "undefined" ? window.localStorage.getItem(RECENTS_KEY) : null,
+      []
+    );
+    return Array.isArray(stored)
       ? stored
           .filter((u) => u && typeof u.email === "string" && typeof u.name === "string")
           .map((u) => ({ name: u.name.trim() || u.email, email: u.email.trim().toLowerCase() }))
           .filter((u) => isValidEmail(u.email))
           .slice(0, MAX_RECENTS)
       : [];
-    setRecent(cleaned);
-  }, []);
+  });
+  const [query, setQuery] = useState("");
+  const [inlineError, setInlineError] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const blurTimeoutRef = useRef<number | null>(null);
+  const emails = value;
+  const directory = session?.user?.demoMode ? DEMO_UW_DIRECTORY : EMPTY_DIRECTORY;
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -365,8 +365,8 @@ export function ParticipantInvites({
                         {getFirstLastInitials(u.name)}
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-[var(--text)]">{highlightText(u.name) as any}</p>
-                        <p className="truncate text-xs text-[var(--textMuted)]">{highlightText(u.email) as any}</p>
+                        <p className="truncate text-sm font-semibold text-[var(--text)]">{highlightText(u.name)}</p>
+                        <p className="truncate text-xs text-[var(--textMuted)]">{highlightText(u.email)}</p>
                       </div>
                     </div>
                   </button>
@@ -403,8 +403,8 @@ export function ParticipantInvites({
                           {getFirstLastInitials(u.name)}
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-[var(--text)]">{highlightText(u.name) as any}</p>
-                          <p className="truncate text-xs text-[var(--textMuted)]">{highlightText(u.email) as any}</p>
+                          <p className="truncate text-sm font-semibold text-[var(--text)]">{highlightText(u.name)}</p>
+                          <p className="truncate text-xs text-[var(--textMuted)]">{highlightText(u.email)}</p>
                         </div>
                       </div>
                     </button>

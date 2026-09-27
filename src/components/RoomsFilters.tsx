@@ -203,7 +203,7 @@ export function filterAndSortRooms(rooms: Room[], state: RoomsFilterState): Room
   const q = state.search.trim().toLowerCase();
   const furnitureSet = new Set(state.furnitureSelected);
   const capacityBuckets = state.capacityBuckets;
-  let filtered = rooms.filter((room) => {
+  const filtered = rooms.filter((room) => {
     if (state.building && room.building !== state.building) return false;
     if (capacityBuckets.length > 0) {
       const inAny = capacityBuckets.some((b) => roomInCapacityBucket(room, b));
@@ -353,19 +353,15 @@ const CAPACITY_BUCKET_OPTIONS: { value: CapacityBucket; label: string }[] = [
 
 export function RoomsFilters({
   state,
-  setSearch,
   setBuilding,
   toggleCapacityBucket,
   setStreamingOnly,
   setElectronicOnly,
   setDocCamOnly,
   toggleFurniture,
-  setSort,
   buildingModalOpen,
   setBuildingModalOpen,
   buildingsList,
-  hasActiveFilters,
-  onReset,
 }: RoomsFiltersProps) {
   const [avOpen, setAvOpen] = useState(false);
   const [furnitureOpen, setFurnitureOpen] = useState(false);

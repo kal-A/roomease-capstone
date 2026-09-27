@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { TIME_SLOTS_30MIN, timeToMinutes, timeRangesOverlap, formatTimeSlot, formatDuration } from "@/types/booking";
+import { TIME_SLOTS_30MIN, timeToMinutes, timeRangesOverlap } from "@/types/booking";
 
 interface AvailabilityDisplayProps {
   roomId: string | number;
@@ -62,7 +62,6 @@ export function AvailabilityDisplay({
         return timeToMinutes(a.timeSlot) - timeToMinutes(b.timeSlot);
       });
 
-      const DAY_START = 9 * 60; // 9:00 AM
       const DAY_END = 22 * 60; // 10:00 PM
 
       // Find the end of the latest conflicting booking

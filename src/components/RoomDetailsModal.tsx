@@ -54,8 +54,6 @@ export function RoomDetailsModal({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
-
   const details = getRoomDetailEntries(room);
   const availabilityBookings = useMemo(() => {
     return bookings.filter(
@@ -78,6 +76,8 @@ export function RoomDetailsModal({
   const timelineStart = 9 * 60;
   const timelineEnd = 22 * 60;
   const timelineTotal = timelineEnd - timelineStart;
+
+  if (!isOpen) return null;
 
   return (
     <div

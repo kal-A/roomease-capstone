@@ -41,12 +41,6 @@ function formatTimeLabel(minutes: number): string {
   return `${h12}:${String(m).padStart(2, "0")} ${period}`;
 }
 
-function minutesToSlot(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}
-
 function localMinutesFromIso(isoUtc: string): number {
   const dt = DateTime.fromISO(isoUtc).setZone("America/Toronto");
   return dt.hour * 60 + dt.minute;
@@ -174,37 +168,42 @@ export function TimeBar({
 
   useEffect(() => {
     if (prevHasConflictRef.current && !hasConflict) {
-      setShowAvailableSuccess(true);
-      const t = window.setTimeout(() => setShowAvailableSuccess(false), 1800);
-      return () => window.clearTimeout(t);
+      const showTimer = window.setTimeout(() => setShowAvailableSuccess(true), 0);
+      const hideTimer = window.setTimeout(() => setShowAvailableSuccess(false), 1800);
+      prevHasConflictRef.current = hasConflict;
+      return () => {
+        window.clearTimeout(showTimer);
+        window.clearTimeout(hideTimer);
+      };
     }
     prevHasConflictRef.current = hasConflict;
   }, [hasConflict]);
 
-  if (!selectedRange) {
-    return null;
-  }
-
-  const getSegmentState = (segStart: number, segEnd: number): "available" | "booked" | "selected" | "out-of-range" => {
-    if (segStart < DAY_START || segEnd > DAY_END) return "out-of-range";
-    const isBooked = bookedRanges.some((booked) =>
-      timeRangesOverlap(booked.start, booked.end - booked.start, segStart, segEnd - segStart)
-    );
-    const isSelected = selectedRange && timeRangesOverlap(selectedRange.start, durationMinutes, segStart, segEnd - segStart);
-    if (isSelected) return "selected";
-    if (isBooked) return "booked";
-    return "available";
-  };
-
-  // Create 30-minute segments for bar and for block list
   const segments = useMemo(() => {
     return TIME_SLOTS_30MIN.map((slot) => {
       const start = timeToMinutes(slot.value);
       const end = start + 30;
-      const state = getSegmentState(start, end);
+      const isBooked = bookedRanges.some((booked) =>
+        timeRangesOverlap(booked.start, booked.end - booked.start, start, end - start)
+      );
+      const isSelected = selectedRange
+        ? timeRangesOverlap(selectedRange.start, durationMinutes, start, end - start)
+        : false;
+      const state: "available" | "booked" | "selected" | "out-of-range" =
+        start < DAY_START || end > DAY_END
+          ? "out-of-range"
+          : isSelected
+            ? "selected"
+            : isBooked
+              ? "booked"
+              : "available";
       return { start, end, label: slot.label, value: slot.value, state };
     });
   }, [bookedRanges, selectedRange, durationMinutes]);
+
+  if (!selectedRange) {
+    return null;
+  }
 
   // Calculate availability heat (how many bookings overlap with this segment)
   const getSegmentHeat = (segStart: number, segEnd: number): number => {
@@ -256,8 +255,6 @@ export function TimeBar({
     if (v === "denied") return "Denied";
     return "—";
   };
-
-  const contextStatusLabel = bookingStatusLabel(overlapBookingsForContext[0]?.status);
 
   return (
     <motion.div
