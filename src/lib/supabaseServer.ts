@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { getSupabaseServerEnv } from "@/lib/config/server";
 
 /**
  * Server-only Supabase client using SERVICE ROLE key.
@@ -6,13 +7,7 @@ import { createClient } from "@supabase/supabase-js";
  * Do NOT expose this client or the service role key to the client.
  */
 export function supabaseServer() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceRoleKey) {
-    throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in environment"
-    );
-  }
+  const { url, serviceRoleKey } = getSupabaseServerEnv();
   return createClient(url, serviceRoleKey, {
     auth: { persistSession: false },
   });
