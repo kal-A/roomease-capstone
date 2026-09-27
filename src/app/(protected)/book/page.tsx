@@ -29,6 +29,82 @@ import { DateTime } from "luxon";
 const TOTAL_STEPS_FULL = 3;
 const TOTAL_STEPS_DIRECT = 2;
 
+type ExistingBooking = {
+  roomId: string;
+  preferredDate: string;
+  timeSlot: string;
+  durationMinutes: number;
+  organizerName?: string;
+  organizerEmail?: string;
+};
+
+type RoomBookingApiRow = {
+  room_id?: unknown;
+  start_time?: unknown;
+  end_time?: unknown;
+  organizer_name?: unknown;
+  booker_name?: unknown;
+  booker_email?: unknown;
+  status?: unknown;
+  event_name?: unknown;
+  is_mine?: unknown;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getApiError(value: unknown, fallback: string): string {
+  return isRecord(value) && typeof value.error === "string" ? value.error : fallback;
+}
+
+function parseRoomBookings(value: unknown): TimeBarBooking[] {
+  if (!isRecord(value) || !Array.isArray(value.bookings)) return [];
+
+  return value.bookings
+    .filter(isRecord)
+    .map((booking: RoomBookingApiRow) => ({
+      roomId: String(booking.room_id ?? ""),
+      startTimeIsoUtc: String(booking.start_time ?? ""),
+      endTimeIsoUtc: String(booking.end_time ?? ""),
+      organizerName: String(booking.organizer_name ?? ""),
+      bookerName: booking.booker_name == null ? null : String(booking.booker_name),
+      bookerEmail: String(booking.booker_email ?? ""),
+      status: String(booking.status ?? ""),
+      eventName: booking.event_name == null ? null : String(booking.event_name),
+      isMine: Boolean(booking.is_mine),
+    }));
+}
+
+function parseBlockedBookings(value: unknown): ExistingBooking[] {
+  if (!isRecord(value) || !Array.isArray(value.blockedBookings)) return [];
+
+  return value.blockedBookings.flatMap((booking) => {
+    if (!isRecord(booking)) return [];
+    const roomId = booking.roomId;
+    const preferredDate = booking.preferredDate;
+    const timeSlot = booking.timeSlot;
+    const durationMinutes = booking.durationMinutes;
+    if (
+      typeof roomId !== "string" ||
+      typeof preferredDate !== "string" ||
+      typeof timeSlot !== "string" ||
+      typeof durationMinutes !== "number"
+    ) {
+      return [];
+    }
+
+    return [{
+      roomId,
+      preferredDate,
+      timeSlot,
+      durationMinutes,
+      organizerName: typeof booking.organizerName === "string" ? booking.organizerName : undefined,
+      organizerEmail: typeof booking.organizerEmail === "string" ? booking.organizerEmail : undefined,
+    }];
+  });
+}
+
 function getMatchingRooms(formData: EventFormData): Room[] {
   const {
     groupSize,
@@ -92,7 +168,7 @@ function normalizeBookingStatus(raw: string | null | undefined): BookingStatus |
 function validateRoomForBooking(args: {
   room: Room;
   form: EventFormData;
-  existingBookings: { roomId: string; preferredDate: string; timeSlot: string; durationMinutes: number }[];
+  existingBookings: ExistingBooking[];
 }): { ok: boolean; errors: string[] } {
   const { room, form, existingBookings } = args;
   const errors: string[] = [];
@@ -132,7 +208,7 @@ function validateRoomForBooking(args: {
       return timeRangesOverlap(existingStart, existingDuration, startM, duration);
     });
     if (overlaps.length > 0) {
-      const maybeFirst = overlaps[0] as any;
+      const maybeFirst = overlaps[0];
       const organizerName = String(maybeFirst?.organizerName ?? "").toLowerCase();
       const isBlocked = organizerName.includes("blocked");
       errors.push(
@@ -191,7 +267,6 @@ function BookPageContent() {
   const [selectedBookingStatus, setSelectedBookingStatus] = useState<BookingStatus | null>(null);
   const [doubleBookingError, setDoubleBookingError] = useState<string | null>(null);
   const [doubleBookingErrorContext, setDoubleBookingErrorContext] = useState<{ isMine: boolean; organizerName: string; timeLabel: string } | null>(null);
-  const [selectedRoomError, setSelectedRoomError] = useState<string[] | null>(null);
   const [directBookingError, setDirectBookingError] = useState<string | null>(null);
   const [roomsLoading, setRoomsLoading] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -199,6 +274,7 @@ function BookPageContent() {
 
   const directErrorRef = useRef<HTMLDivElement | null>(null);
   const bookingErrorRef = useRef<HTMLDivElement | null>(null);
+  const roomsLoadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastErrorScrollKeyRef = useRef<string>("");
   const [directErrorPulse, setDirectErrorPulse] = useState(0);
   const [bookingErrorPulse, setBookingErrorPulse] = useState(0);
@@ -253,25 +329,20 @@ function BookPageContent() {
     }
   }, [directBookingError, doubleBookingError]);
 
-  useEffect(() => {
-    if (step === 2 && !lockedRoom) {
-      setRoomsLoading(true);
-      const t = setTimeout(() => setRoomsLoading(false), 400);
-      return () => clearTimeout(t);
-    }
-  }, [step, lockedRoom]);
+  useEffect(() => () => {
+    if (roomsLoadingTimerRef.current) clearTimeout(roomsLoadingTimerRef.current);
+  }, []);
 
   const totalSteps = lockedRoom ? TOTAL_STEPS_DIRECT : TOTAL_STEPS_FULL;
   const { data: session } = useSession();
+  const sessionUserEmail = session?.user?.email ?? undefined;
   const isMember = useMemo(
     () => (session?.user?.role ?? "member") === "member",
     [session?.user?.role]
   );
   const [confirmFlow, setConfirmFlow] = useState<"booking" | "member_request">("booking");
   const [liveRoomBookings, setLiveRoomBookings] = useState<TimeBarBooking[]>([]);
-  const [blockedForDate, setBlockedForDate] = useState<
-    { roomId: string; preferredDate: string; timeSlot: string; durationMinutes: number; organizerName?: string; organizerEmail?: string }[]
-  >([]);
+  const [blockedForDate, setBlockedForDate] = useState<ExistingBooking[]>([]);
   const existingBookings = useMemo(
     () =>
       bookings
@@ -305,9 +376,8 @@ function BookPageContent() {
       try {
         const res = await fetch(`/api/blockers/by-date?${new URLSearchParams({ date })}`, { method: "GET" });
         if (!res.ok) return;
-        const json = (await res.json().catch(() => ({}))) as { blockedBookings?: unknown[] };
-        const list = Array.isArray(json.blockedBookings) ? json.blockedBookings : [];
-        if (!cancelled) setBlockedForDate(list as any);
+        const json: unknown = await res.json().catch(() => ({}));
+        if (!cancelled) setBlockedForDate(parseBlockedBookings(json));
       } catch {
         // Keep booking flow working even if blockers fail to load.
       }
@@ -348,23 +418,9 @@ function BookPageContent() {
     };
   }, [directBookingError, lockedRoom, formData.timeSlot, formData.durationMinutes, liveRoomBookings]);
 
-  // If the user picks one of the "closest available options" and the new selection is valid,
-  // automatically clear the top-level conflict error (so they aren't blocked by stale UI state).
-  useEffect(() => {
-    if (!directBookingError || !lockedRoom) return;
-    const isTimeConflict = /booked|blocked/i.test(directBookingError);
-    if (!isTimeConflict) return;
-    if (directConflictContext === null) {
-      setDirectBookingError(null);
-    }
-  }, [directBookingError, directConflictContext, lockedRoom]);
-
   // Live availability source of truth for direct booking timeline.
   useEffect(() => {
-    if (!lockedRoom || !formData.preferredDate) {
-      setLiveRoomBookings([]);
-      return;
-    }
+    if (!lockedRoom || !formData.preferredDate) return;
     let cancelled = false;
     (async () => {
       try {
@@ -373,20 +429,9 @@ function BookPageContent() {
           date: String(formData.preferredDate),
         });
         const res = await fetch(`/api/bookings/by-room?${params.toString()}`);
-        const json = await res.json().catch(() => ({}));
+        const json: unknown = await res.json().catch(() => ({}));
         if (!res.ok) return;
-        const rows = Array.isArray((json as any)?.bookings) ? (json as any).bookings : [];
-        const mapped: TimeBarBooking[] = rows.map((b: any) => ({
-          roomId: String(b.room_id),
-          startTimeIsoUtc: String(b.start_time),
-          endTimeIsoUtc: String(b.end_time),
-          organizerName: String(b.organizer_name ?? ""),
-          bookerName: b.booker_name ?? null,
-          bookerEmail: String(b.booker_email ?? ""),
-          status: String(b.status ?? ""),
-          eventName: b.event_name ?? null,
-          isMine: Boolean(b.is_mine),
-        }));
+        const mapped = parseRoomBookings(json);
         if (!cancelled) setLiveRoomBookings(mapped);
       } catch (e) {
         console.error("LIVE AVAILABILITY FETCH ERROR", e);
@@ -400,11 +445,20 @@ function BookPageContent() {
   const handleFormSubmit = useCallback(() => {
     setDoubleBookingError(null);
     setDoubleBookingErrorContext(null);
-    setSelectedRoomError(null);
     setDirectBookingError(null);
     setSelectedBookingStatus(null);
+    setRoomsLoading(true);
+    if (roomsLoadingTimerRef.current) clearTimeout(roomsLoadingTimerRef.current);
+    roomsLoadingTimerRef.current = setTimeout(() => setRoomsLoading(false), 400);
     setStep(2);
   }, []);
+
+  const handleFormChange = useCallback((nextFormData: EventFormData) => {
+    setFormData(nextFormData);
+    if (directBookingError && /booked|blocked/i.test(directBookingError)) {
+      setDirectBookingError(null);
+    }
+  }, [directBookingError]);
 
   /** Direct booking: validate, then show confirmation modal. */
   const handleDirectBookingSubmit = useCallback(() => {
@@ -564,7 +618,7 @@ function BookPageContent() {
 
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
-        const msg = String((json as any)?.error ?? "Booking failed.");
+        const msg = getApiError(json, "Booking failed.");
         const isDirect = !!lockedRoom && String(pendingBooking.room.id) === String(lockedRoom.id);
         if (isDirect) {
           const finalMsg = res.status === 400 ? msg : "Something went wrong creating your booking. Please try again.";
@@ -592,7 +646,7 @@ function BookPageContent() {
 
             const first = overlaps[0];
             if (first) {
-              const isMine = Boolean(session?.user?.email) && String(first.organizerEmail ?? "") === String(session?.user?.email);
+              const isMine = Boolean(sessionUserEmail) && String(first.organizerEmail ?? "") === sessionUserEmail;
               setDoubleBookingErrorContext({
                 isMine,
                 organizerName: String(first.organizerName ?? "Unknown Organizer"),
@@ -636,7 +690,7 @@ function BookPageContent() {
     const booking = addBooking({
       form: pendingBooking.formData,
       room: pendingBooking.room,
-      organizerEmail: session?.user?.email ?? undefined,
+      organizerEmail: sessionUserEmail,
       backendBookingId,
     });
 
@@ -663,32 +717,20 @@ function BookPageContent() {
           date: String(pendingBooking.formData.preferredDate),
         });
         const res = await fetch(`/api/bookings/by-room?${params.toString()}`);
-        const json = await res.json().catch(() => ({}));
+        const json: unknown = await res.json().catch(() => ({}));
         if (res.ok) {
-          const rows = Array.isArray((json as any)?.bookings) ? (json as any).bookings : [];
-          const mapped: TimeBarBooking[] = rows.map((b: any) => ({
-            roomId: String(b.room_id),
-            startTimeIsoUtc: String(b.start_time),
-            endTimeIsoUtc: String(b.end_time),
-            organizerName: String(b.organizer_name ?? ""),
-            bookerName: b.booker_name ?? null,
-            bookerEmail: String(b.booker_email ?? ""),
-            status: String(b.status ?? ""),
-            eventName: b.event_name ?? null,
-            isMine: Boolean(b.is_mine),
-          }));
+          const mapped = parseRoomBookings(json);
           setLiveRoomBookings(mapped);
         }
       } catch {
         // ignore
       }
     }
-  }, [pendingBooking, addBooking, session?.user?.email, setBookingStatus, isMember]);
+  }, [pendingBooking, addBooking, sessionUserEmail, setBookingStatus, isMember, lockedRoom, existingBookingsWithBlocked]);
 
   const handleBack = useCallback(() => {
     setDoubleBookingError(null);
     setDoubleBookingErrorContext(null);
-    setSelectedRoomError(null);
     setDirectBookingError(null);
     setSelectedBookingStatus(null);
     setStep(1);
@@ -704,69 +746,6 @@ function BookPageContent() {
     setConfirmFlow("booking");
     setStep(1);
   }, []);
-
-  const confirmLockedRoom = useCallback(async () => {
-    if (!lockedRoom) return;
-    const validation = validateRoomForBooking({ room: lockedRoom, form: formData, existingBookings: existingBookingsWithBlocked });
-    if (!validation.ok) {
-      setSelectedRoomError(validation.errors);
-      return;
-    }
-    setSelectedRoom(lockedRoom);
-    let createdBookingResponse: { booking?: { id?: string; status?: string } } | null = null;
-    try {
-      const { startTimeIsoUtc, endTimeIsoUtc } = buildBookingRange({
-        preferredDate: formData.preferredDate ?? "",
-        timeSlot: formData.timeSlot ?? "",
-        durationMinutes: formData.durationMinutes ?? 60,
-      });
-
-      const res = await fetch("/api/bookings/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          roomId: String(lockedRoom.id),
-          eventName: String(formData.eventName ?? ""),
-          organizerName: String(formData.organizerName ?? ""),
-          groupSize: Number(formData.groupSize ?? 0),
-          startTime: startTimeIsoUtc,
-          endTime: endTimeIsoUtc,
-        }),
-      });
-
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        const msg = String((json as any)?.error ?? "Booking failed.");
-        setSelectedRoomError([msg]);
-        setSelectedRoom(null);
-        return;
-      }
-
-      createdBookingResponse = (await res.json().catch(() => null)) as { booking?: { id?: string; status?: string } } | null;
-    } catch (e) {
-      console.error("BOOKING CREATE API ERROR", e);
-      setSelectedRoomError(["Something went wrong creating your booking. Please try again."]);
-      setSelectedRoom(null);
-      return;
-    }
-
-    const backendBookingId = createdBookingResponse?.booking?.id ? String(createdBookingResponse.booking.id) : undefined;
-    const booking = addBooking({
-      form: formData,
-      room: lockedRoom,
-      organizerEmail: session?.user?.email ?? undefined,
-      backendBookingId,
-    });
-
-    const serverStatusRaw = String(createdBookingResponse?.booking?.status ?? "");
-    const serverStatus = normalizeBookingStatus(serverStatusRaw) ?? booking.status;
-    setBookingStatus(booking.id, serverStatus);
-    setSelectedBookingStatus(serverStatus);
-
-    setConfirmationNumber(booking.confirmationNumber);
-    setSelectedRoomError(null);
-    setStep(3);
-  }, [lockedRoom, formData, existingBookingsWithBlocked, addBooking, session?.user?.email, setBookingStatus]);
 
   const smartHints = useMemo(() => {
     const date = formData.preferredDate ?? "";
@@ -946,7 +925,7 @@ function BookPageContent() {
             <div className={directBookingError ? "opacity-95 transition-opacity duration-200" : ""}>
               <EventForm
                 data={formData}
-                onChange={setFormData}
+                onChange={handleFormChange}
                 onSubmit={lockedRoom ? handleDirectBookingSubmit : handleFormSubmit}
                 buildings={buildingsList}
                 directBooking={!!lockedRoom}
