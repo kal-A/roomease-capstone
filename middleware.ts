@@ -1,5 +1,4 @@
 import { withAuth } from "next-auth/middleware";
-import { NextResponse } from "next/server";
 import type { NextFetchEvent, NextRequest } from "next/server";
 import { updateSupabaseSession } from "@/utils/supabase/middleware";
 

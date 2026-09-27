@@ -160,7 +160,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });
   }
 
-  const hasMatchingBlocker = (blockerRows ?? []).some((br: any) => {
+  const hasMatchingBlocker = ((blockerRows ?? []) as Array<Record<string, unknown>>).some((br) => {
     const brRoom = br.room_id ? String(br.room_id) : "";
     const brBuilding = br.building ? String(br.building) : "";
     return brRoom === String(roomId) || (!!roomBuilding && brBuilding === roomBuilding);

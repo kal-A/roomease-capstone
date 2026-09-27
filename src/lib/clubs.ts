@@ -1,5 +1,7 @@
 import clubs from "@/data/clubs.json";
 
+type ClubRecord = { name?: unknown };
+
 /**
  * Build a clean, sorted list of club names from the raw JSON.
  * - trims whitespace
@@ -11,7 +13,7 @@ export function getClubNames(): string[] {
   const rawNames =
     Array.isArray(clubs) && clubs.length > 0
       ? clubs
-          .map((c: any) => (typeof c?.name === "string" ? c.name.trim() : ""))
+          .map((c: ClubRecord) => (typeof c.name === "string" ? c.name.trim() : ""))
           .filter((name) => name.length > 0)
       : [];
 

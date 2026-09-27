@@ -83,7 +83,7 @@ function parseCapacity(val) {
  * Extract one room from a row/block. Returns room object or null.
  * skippedReason set when we skip (for caller to push to skipped[]).
  */
-function extractRoom(row, block, side) {
+function extractRoom(row, block) {
   const bldgRoomRaw = String(row[block.bldgRoom] ?? "").trim();
   const capVal = row[block.capacity];
   const capacity = parseCapacity(capVal);

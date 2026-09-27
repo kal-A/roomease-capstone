@@ -69,7 +69,7 @@ export async function GET() {
     .filter((m) => String(m.user_email).toLowerCase() === email && String(m.role_in_club).toLowerCase() === "member")
     .map((m) => m.club_name);
 
-  let execQuery =
+  const execQuery =
     memRes.error || memberClubs.length === 0
       ? { data: [] as MembershipRow[] }
       : await sb

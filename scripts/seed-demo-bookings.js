@@ -170,7 +170,7 @@ function buildTimeOptions() {
   ];
 }
 
-function buildBookingStatusPlan(roomRequiresApproval, bookingIndex, roomIndex) {
+function buildBookingStatusPlan(roomRequiresApproval, bookingIndex) {
   // bookingIndex is 0..7 for 8 seeded date offsets per room.
   // For approval-required rooms:
   // - Admin primarily creates approved, sometimes denied.
@@ -307,7 +307,7 @@ async function run() {
       if (!organizerName) organizerName = "Unknown Organizer";
 
       // Status + booker logic.
-      const { status, wantsAdmin } = buildBookingStatusPlan(roomRequiresApproval, bookingIndex, roomIndex);
+      const { status, wantsAdmin } = buildBookingStatusPlan(roomRequiresApproval, bookingIndex);
 
       let booker = null;
       if (wantsAdmin) {

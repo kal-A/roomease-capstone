@@ -8,6 +8,19 @@ import { DateTime } from "luxon";
 
 type ApiStatus = "pending" | "approved" | "denied" | "confirmed" | "changes_requested";
 
+type BookingRow = {
+  id?: unknown;
+  room_id?: unknown;
+  start_time?: unknown;
+  end_time?: unknown;
+  booker_email?: unknown;
+  event_name?: unknown;
+  organizer_name?: unknown;
+  group_size?: unknown;
+  status?: unknown;
+  created_at?: unknown;
+};
+
 function normalizeApiStatus(
   raw: string
 ): "Pending" | "Approved" | "Denied" | "Confirmed" | "Changes Requested" {
@@ -57,7 +70,7 @@ export async function GET() {
     return NextResponse.json({ error: error.message, code: error.code ?? undefined }, { status: 500 });
   }
 
-  const bookings = (data ?? []).map((b: any) => {
+  const bookings = ((data ?? []) as BookingRow[]).map((b) => {
     const roomIdKey = String(b.room_id);
     const room = roomsById.get(roomIdKey);
     const start = DateTime.fromISO(String(b.start_time)).setZone("America/Toronto");

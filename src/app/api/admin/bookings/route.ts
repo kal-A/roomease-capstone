@@ -46,7 +46,7 @@ export async function GET() {
   const sb = supabaseServer();
   const roomsById = new Map(ROOMS.map((r) => [String(r.id), r]));
 
-  let query = sb
+  const query = sb
     .from("bookings")
     .select(
       "id,room_id,start_time,end_time,booker_name,booker_email,event_name,organizer_name,group_size,status,created_at,admin_note,review_state,reviewed_at,reviewed_by,requested_changes_at,club_name,workflow_source,originated_by_email,originated_by_role,executive_email"
@@ -54,7 +54,8 @@ export async function GET() {
     .order("start_time", { ascending: false })
     .limit(200);
 
-  let { data, error } = await query;
+  const { data, error: initialError } = await query;
+  let error = initialError;
   let bookingRowsRaw: unknown[] | null = data as unknown[] | null;
 
   if (error && /column|does not exist/i.test(String(error.message ?? ""))) {

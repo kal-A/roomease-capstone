@@ -8,10 +8,11 @@ type UndoBody = {
   bookingId: string;
 };
 
-function isRoomNotFoundError(err: any): boolean {
-  if (!err) return false;
-  const code = err.code ? String(err.code) : "";
-  const msg = String(err.message ?? "");
+function isRoomNotFoundError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const candidate = err as { code?: unknown; message?: unknown };
+  const code = candidate.code ? String(candidate.code) : "";
+  const msg = String(candidate.message ?? "");
   return code === "PGRST116" || /no rows/i.test(msg);
 }
 

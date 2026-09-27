@@ -15,6 +15,16 @@ type AdminBlocker = {
   createdBy?: string | null;
 };
 
+type BlockerRow = {
+  id?: unknown;
+  room_id?: unknown;
+  building?: unknown;
+  start_time?: unknown;
+  end_time?: unknown;
+  reason?: unknown;
+  created_by?: unknown;
+};
+
 export async function GET() {
   const session = await getServerSession(authOptions);
   const email = session?.user?.email ?? null;
@@ -34,7 +44,7 @@ export async function GET() {
     return NextResponse.json({ error: error.message, code: error.code ?? undefined }, { status: 500 });
   }
 
-  const blockers: AdminBlocker[] = (data ?? []).map((b: any) => {
+  const blockers: AdminBlocker[] = ((data ?? []) as BlockerRow[]).map((b) => {
     const start = DateTime.fromISO(String(b.start_time ?? "")).setZone("America/Toronto");
     const end = DateTime.fromISO(String(b.end_time ?? "")).setZone("America/Toronto");
     return {

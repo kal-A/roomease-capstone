@@ -5,6 +5,38 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { buildLocalDayBoundsUtc } from "@/lib/bookingTime";
 import { ROOMS } from "@/data/rooms";
 
+type BookingRow = {
+  room_id?: unknown;
+  start_time?: unknown;
+  end_time?: unknown;
+  booker_name?: unknown;
+  booker_email?: unknown;
+  event_name?: unknown;
+  organizer_name?: unknown;
+  status?: unknown;
+  review_state?: unknown;
+};
+
+type BlockerRow = {
+  room_id?: unknown;
+  building?: unknown;
+  start_time?: unknown;
+  end_time?: unknown;
+  reason?: unknown;
+};
+
+type AvailabilityEntry = {
+  room_id: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+  organizer_name: string;
+  event_name: string | null;
+  booker_name: unknown;
+  booker_email: string;
+  is_mine: boolean;
+};
+
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
@@ -57,7 +89,7 @@ export async function GET(req: Request) {
     return `${head}***@${domain}`;
   };
 
-  const bookings = (data ?? []).map((b: any) => {
+  const bookings: AvailabilityEntry[] = ((data ?? []) as BookingRow[]).map((b) => {
     const bookerEmail = String(b.booker_email ?? "");
     const isMine = bookerEmail.toLowerCase() === viewerEmail;
     const statusLower = String(b.status ?? "").toLowerCase().trim();
@@ -94,14 +126,14 @@ export async function GET(req: Request) {
   }
 
   const blockedEmail = "blocked@blocked";
-  const blockers =
-    (blockerRows ?? [])
-      .filter((br: any) => {
+  const blockers: AvailabilityEntry[] =
+    ((blockerRows ?? []) as BlockerRow[])
+      .filter((br) => {
         const brRoom = br.room_id ? String(br.room_id) : "";
         const brBldg = br.building ? String(br.building) : "";
         return brRoom === String(roomId) || (!!building && brBldg === building);
       })
-      .map((br: any) => {
+      .map((br) => {
         const reason = br.reason ? String(br.reason) : "Blocked";
         return {
           room_id: String(roomId),
@@ -116,7 +148,9 @@ export async function GET(req: Request) {
         };
       });
 
-  const merged = [...bookings, ...blockers].sort((a: any, b: any) => String(a.start_time).localeCompare(String(b.start_time)));
+  const merged = [...bookings, ...blockers].sort((a, b) =>
+    a.start_time.localeCompare(b.start_time)
+  );
 
   return NextResponse.json({ bookings: merged });
 }

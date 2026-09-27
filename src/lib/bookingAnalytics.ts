@@ -225,7 +225,7 @@ export function getApprovalFunnel(bookings: Booking[]): {
   denied: number;
   confirmed: number;
 } {
-  let submitted = bookings.length;
+  const submitted = bookings.length;
   let pending = 0;
   let approved = 0;
   let denied = 0;

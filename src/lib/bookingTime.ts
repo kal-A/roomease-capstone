@@ -59,7 +59,6 @@ export function buildBookingRange(input: BookingRangeInput): { startTimeIsoUtc: 
 
   if (process.env.NODE_ENV !== "production") {
     // Temporary dev logs for debugging cross-device normalization.
-    // eslint-disable-next-line no-console
     console.log("[bookingTime] toronto-range", {
       date: input.preferredDate,
       start: input.timeSlot,
@@ -88,7 +87,6 @@ export function buildLocalDayBoundsUtc(preferredDate: string): { dayStartUtcIso:
   ).toUTC();
 
   if (process.env.NODE_ENV !== "production") {
-    // eslint-disable-next-line no-console
     console.log("[bookingTime] toronto-day-bounds", {
       date: preferredDate,
       torontoStart: start.setZone("America/Toronto").toISO(),
